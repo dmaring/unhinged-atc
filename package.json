@@ -1,0 +1,28 @@
+{
+  "name": "unhinged-atc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Crowdsourced air traffic control - the unhinged way",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --parallel --filter './packages/*' dev",
+    "dev:client": "pnpm --filter client dev",
+    "dev:server": "pnpm --filter server dev",
+    "build": "pnpm --filter './packages/*' build",
+    "build:client": "pnpm --filter client build",
+    "build:server": "pnpm --filter server build",
+    "test": "pnpm --filter './packages/*' test",
+    "lint": "pnpm --filter './packages/*' lint",
+    "clean": "pnpm --filter './packages/*' clean && rm -rf node_modules"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}

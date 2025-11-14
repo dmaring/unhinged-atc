@@ -1,0 +1,122 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.header {
+  padding: 15px;
+  border-bottom: 2px solid #00FF00;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.noSelection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-align: center;
+  padding: 20px;
+  opacity: 0.7;
+}
+
+.section {
+  padding: 15px;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.sectionTitle {
+  font-size: 12px;
+  margin-bottom: 10px;
+  opacity: 0.8;
+  letter-spacing: 1px;
+}
+
+.aircraftInfo {
+  margin-bottom: 15px;
+}
+
+.callsign {
+  font-size: 24px;
+  font-weight: bold;
+  color: #00FFFF;
+  text-shadow: 0 0 10px #00FFFF;
+}
+
+.type {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.dataLine {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.value {
+  color: #00FF88;
+  font-weight: bold;
+}
+
+.buttonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.buttonGrid button {
+  padding: 12px;
+  font-size: 12px;
+}
+
+.inputGroup {
+  margin-bottom: 12px;
+}
+
+.inputGroup label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.inputRow {
+  display: flex;
+  gap: 8px;
+}
+
+.inputRow input {
+  flex: 1;
+  font-size: 14px;
+}
+
+.inputRow button {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+
+.emergency {
+  padding: 15px;
+  background-color: rgba(255, 0, 0, 0.2);
+  border: 2px solid #FF0000;
+  color: #FF0000;
+  font-weight: bold;
+  text-align: center;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.5;
+  }
+}
