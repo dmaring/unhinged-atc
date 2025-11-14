@@ -1,5 +1,5 @@
 import { createServer } from 'http';
-import express from 'express';
+import express, { Express } from 'express';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -11,10 +11,10 @@ import { AircraftCommand } from 'shared';
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:5174'];
 
 // Create Express app
-const app = express();
+const app: Express = express();
 const httpServer = createServer(app);
 
 // Configure CORS
@@ -39,7 +39,7 @@ app.get('/stats', (req, res) => {
 // Create Socket.IO server
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: CORS_ORIGIN,
+    origin: ['http://localhost:5173', 'http://localhost:5174'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -127,6 +127,28 @@ io.on('connection', (socket) => {
         message: 'Failed to process command',
       });
     }
+  });
+
+  // Handle time scale change
+  socket.on('set_time_scale', (data: { scale: number }) => {
+    if (!currentRoom) {
+      socket.emit('error', { code: 'NO_ROOM', message: 'Not in a room' });
+      return;
+    }
+
+    const room = gameEngine.getRoom(currentRoom);
+    if (!room) {
+      socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+      return;
+    }
+
+    // Set the time scale
+    room.setTimeScale(data.scale);
+
+    // Broadcast the new time scale to all clients in the room
+    io.to(currentRoom).emit('time_scale_updated', {
+      timeScale: room.getTimeScale(),
+    });
   });
 
   // Handle disconnect

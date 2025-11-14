@@ -11,6 +11,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
   const addEvent = useGameStore((state) => state.addEvent);
   const updateController = useGameStore((state) => state.updateController);
   const removeController = useGameStore((state) => state.removeController);
+  const updateTimeScale = useGameStore((state) => state.updateTimeScale);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -84,12 +85,20 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       console.log(`[GameSync] Command issued: ${data.commandType} on ${data.aircraftId}`);
     };
 
+    // Handle time scale updates
+    const onTimeScaleUpdated = (data: { timeScale: number }) => {
+      console.log(`[GameSync] Time scale updated: ${data.timeScale}x`);
+      // Update the game state with new time scale
+      updateTimeScale(data.timeScale);
+    };
+
     // Register event listeners
     socket.on('game_state', onGameState);
     socket.on('state_update', onStateUpdate);
     socket.on('game_event', onGameEvent);
     socket.on('controller_update', onControllerUpdate);
     socket.on('command_issued', onCommandIssued);
+    socket.on('time_scale_updated', onTimeScaleUpdated);
 
     // Cleanup
     return () => {
@@ -98,6 +107,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       socket.off('game_event', onGameEvent);
       socket.off('controller_update', onControllerUpdate);
       socket.off('command_issued', onCommandIssued);
+      socket.off('time_scale_updated', onTimeScaleUpdated);
     };
   }, [
     socket,
@@ -109,6 +119,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     addEvent,
     updateController,
     removeController,
+    updateTimeScale,
   ]);
 
   /**
@@ -127,5 +138,17 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     });
   };
 
-  return { sendCommand };
+  /**
+   * Set time scale
+   */
+  const setTimeScale = (scale: number) => {
+    if (!socket || !isConnected) {
+      console.warn('[GameSync] Cannot set time scale: not connected');
+      return;
+    }
+
+    socket.emit('set_time_scale', { scale });
+  };
+
+  return { sendCommand, setTimeScale };
 }

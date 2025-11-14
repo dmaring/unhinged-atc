@@ -2,8 +2,22 @@ import { Aircraft, AIRCRAFT_TYPES } from 'shared';
 
 export class AircraftPhysics {
   // Time scale multiplier - makes the game faster and more fun!
-  // 15x means aircraft move 15x faster than real-time
-  private readonly TIME_SCALE = 15;
+  // 10x means aircraft move 10x faster than real-time
+  private timeScale = 10;
+
+  /**
+   * Set the time scale multiplier
+   */
+  setTimeScale(scale: number): void {
+    this.timeScale = Math.max(1, Math.min(30, scale)); // Clamp between 1x and 30x
+  }
+
+  /**
+   * Get the current time scale
+   */
+  getTimeScale(): number {
+    return this.timeScale;
+  }
 
   /**
    * Update aircraft position and state based on physics
@@ -11,7 +25,7 @@ export class AircraftPhysics {
    */
   update(aircraft: Aircraft, deltaTime: number): void {
     // Apply time scale for faster, more exciting gameplay
-    const scaledDeltaTime = deltaTime * this.TIME_SCALE;
+    const scaledDeltaTime = deltaTime * this.timeScale;
     // 1. Turn towards target heading
     this.updateHeading(aircraft, scaledDeltaTime);
 

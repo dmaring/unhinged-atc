@@ -38,9 +38,11 @@
   background-color: var(--background-black);
   border: 2px solid var(--primary-green);
   margin: 10px 10px 10px 0;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 10px;
+  overflow-y: auto;
 }
 
 .header {

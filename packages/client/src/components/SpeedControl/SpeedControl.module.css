@@ -1,0 +1,137 @@
+.container {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid #00ff00;
+  padding: 12px;
+  font-family: 'Share Tech Mono', monospace;
+  color: #00ff00;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.title {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.currentSpeed {
+  font-size: 16px;
+  font-weight: bold;
+  color: #00ffff;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.presetButton {
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  padding: 6px 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.presetButton:hover {
+  background: rgba(0, 255, 0, 0.2);
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.presetButton.active {
+  background: rgba(0, 255, 255, 0.3);
+  border-color: #00ffff;
+  color: #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.fineControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adjustButton {
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  width: 28px;
+  height: 28px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adjustButton:hover:not(:disabled) {
+  background: rgba(0, 255, 0, 0.2);
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.adjustButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(0, 255, 0, 0.2);
+  outline: none;
+  border-radius: 2px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #00ff00;
+  cursor: pointer;
+  border-radius: 2px;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #00ff00;
+  cursor: pointer;
+  border-radius: 2px;
+  border: none;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+}

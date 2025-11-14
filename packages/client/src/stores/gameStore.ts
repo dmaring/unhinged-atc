@@ -15,6 +15,7 @@ interface GameStore {
   addEvent: (event: GameEvent) => void;
   updateController: (controller: Controller) => void;
   removeController: (id: string) => void;
+  updateTimeScale: (timeScale: number) => void;
   reset: () => void;
 }
 
@@ -115,6 +116,18 @@ export const useGameStore = create<GameStore>((set) => ({
         gameState: {
           ...store.gameState,
           controllers: remaining,
+        },
+      };
+    }),
+
+  updateTimeScale: (timeScale) =>
+    set((store) => {
+      if (!store.gameState) return store;
+
+      return {
+        gameState: {
+          ...store.gameState,
+          timeScale,
         },
       };
     }),

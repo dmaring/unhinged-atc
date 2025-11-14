@@ -6,22 +6,32 @@ import {
   GameEvent,
   StateDelta,
   AIRCRAFT_TYPES,
-  AircraftType
+  AircraftType,
+  Conflict,
+  POINTS
 } from 'shared';
 import { AircraftPhysics } from './AircraftPhysics.js';
 import { CommandProcessor } from './CommandProcessor.js';
+import { CollisionDetector } from './CollisionDetector.js';
+import { LandingSystem } from './LandingSystem.js';
 import { randomBytes } from 'crypto';
 
 export class GameRoom {
   private gameState: GameState;
   private physics: AircraftPhysics;
   private commandProcessor: CommandProcessor;
+  private collisionDetector: CollisionDetector;
+  private landingSystem: LandingSystem;
   private aircraftCounter = 0;
   private lastSpawnTime = 0;
+  private fuelWarnings: Set<string> = new Set(); // Track aircraft with fuel warnings
+  private fuelEmergencies: Set<string> = new Set(); // Track aircraft with fuel emergencies
 
   constructor(roomId: string) {
     this.physics = new AircraftPhysics();
     this.commandProcessor = new CommandProcessor();
+    this.collisionDetector = new CollisionDetector(this.physics);
+    this.landingSystem = new LandingSystem(this.physics);
 
     // Initialize game state
     this.gameState = {
@@ -65,6 +75,7 @@ export class GameRoom {
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
+      timeScale: 10, // Default 10x speed
     };
 
     // Spawn initial aircraft
@@ -123,6 +134,46 @@ export class GameRoom {
         trailHistory: aircraft.trailHistory,
       });
     });
+
+    // Check for collisions and near misses
+    const conflicts = this.collisionDetector.detectConflicts(this.gameState.aircraft);
+
+    if (conflicts.length > 0) {
+      // Process collisions (mark aircraft as collided)
+      this.collisionDetector.processCollisions(this.gameState.aircraft, conflicts);
+
+      // Generate events for new conflicts
+      conflicts.forEach((conflict) => {
+        this.handleConflict(conflict);
+      });
+
+      // Add new events to delta
+      if (this.gameState.recentEvents.length > 0) {
+        const latestEvents = this.gameState.recentEvents.slice(0, 5);
+        delta.newEvents = latestEvents.filter((e) =>
+          e.timestamp > delta.timestamp - 100
+        );
+      }
+    }
+
+    // Check for fuel emergencies
+    Object.values(this.gameState.aircraft).forEach((aircraft) => {
+      if (!aircraft.isLanded && !aircraft.hasCollided) {
+        this.checkFuelStatus(aircraft);
+      }
+    });
+
+    // Check for landings
+    const landingAttempts = this.landingSystem.checkLandings(
+      this.gameState.aircraft,
+      this.gameState.airspace.airports
+    );
+
+    if (landingAttempts.length > 0) {
+      landingAttempts.forEach((attempt) => {
+        this.handleLanding(attempt);
+      });
+    }
 
     return delta;
   }
@@ -213,6 +264,22 @@ export class GameRoom {
    */
   getControllerCount(): number {
     return Object.keys(this.gameState.controllers).length;
+  }
+
+  /**
+   * Set time scale
+   */
+  setTimeScale(scale: number): void {
+    this.gameState.timeScale = Math.max(1, Math.min(30, scale));
+    this.physics.setTimeScale(this.gameState.timeScale);
+    console.log(`[GameRoom ${this.gameState.roomId}] Time scale set to ${this.gameState.timeScale}x`);
+  }
+
+  /**
+   * Get current time scale
+   */
+  getTimeScale(): number {
+    return this.gameState.timeScale;
   }
 
   /**
@@ -386,7 +453,173 @@ export class GameRoom {
     delete this.gameState.aircraft[aircraft.id];
 
     // Penalty
-    this.gameState.score -= 200;
+    this.gameState.score += POINTS.outOfBounds;
+  }
+
+  /**
+   * Handle landing attempt
+   */
+  private handleLanding(attempt: { aircraftId: string; airport: string; runway: string; success: boolean; reason?: string }): void {
+    const aircraft = this.gameState.aircraft[attempt.aircraftId];
+    if (!aircraft) return;
+
+    if (attempt.success) {
+      // Successful landing
+      aircraft.isLanded = true;
+      aircraft.flightPhase = 'landing';
+      aircraft.speed = 0;
+
+      // Calculate score
+      const landingScore = this.landingSystem.calculateLandingScore(aircraft, attempt);
+      this.gameState.score += landingScore;
+      this.gameState.successfulLandings++;
+
+      // Remove from fuel warnings/emergencies
+      this.fuelWarnings.delete(aircraft.id);
+      this.fuelEmergencies.delete(aircraft.id);
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'landing_success',
+        timestamp: Date.now(),
+        aircraftIds: [aircraft.id],
+        message: `${aircraft.callsign} landed successfully at ${attempt.airport} runway ${attempt.runway} (+${landingScore} points)`,
+        severity: 'info',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] LANDING: ${aircraft.callsign} at ${attempt.airport}`);
+
+      // Remove aircraft after a delay (simulate taxi to gate)
+      setTimeout(() => {
+        delete this.gameState.aircraft[aircraft.id];
+        this.fuelWarnings.delete(aircraft.id);
+        this.fuelEmergencies.delete(aircraft.id);
+      }, 5000);
+    } else {
+      // Failed landing - go around
+      this.gameState.score += POINTS.goAround;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'pilot_complaint',
+        timestamp: Date.now(),
+        aircraftIds: [aircraft.id],
+        message: `${aircraft.callsign} go-around at ${attempt.airport}: ${attempt.reason}`,
+        severity: 'warning',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] GO-AROUND: ${aircraft.callsign} - ${attempt.reason}`);
+
+      // Set missed approach - climb to safe altitude
+      aircraft.targetAltitude = Math.max(aircraft.targetAltitude, 3000);
+      aircraft.flightPhase = 'cruise';
+    }
+  }
+
+  /**
+   * Check fuel status and generate warnings/emergencies
+   */
+  private checkFuelStatus(aircraft: Aircraft): void {
+    const fuelPercent = aircraft.fuel;
+
+    // Fuel emergency: below 10%
+    if (fuelPercent < 10 && !this.fuelEmergencies.has(aircraft.id)) {
+      this.fuelEmergencies.add(aircraft.id);
+      aircraft.emergencyType = 'fuel';
+
+      this.gameState.score += POINTS.fuelEmergency;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'emergency',
+        timestamp: Date.now(),
+        aircraftIds: [aircraft.id],
+        message: `FUEL EMERGENCY: ${aircraft.callsign} - ${fuelPercent.toFixed(1)}% fuel remaining!`,
+        severity: 'critical',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] FUEL EMERGENCY: ${aircraft.callsign}`);
+    }
+    // Low fuel warning: below 30%
+    else if (fuelPercent < 30 && !this.fuelWarnings.has(aircraft.id)) {
+      this.fuelWarnings.add(aircraft.id);
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'emergency',
+        timestamp: Date.now(),
+        aircraftIds: [aircraft.id],
+        message: `Low fuel: ${aircraft.callsign} - ${fuelPercent.toFixed(1)}% remaining`,
+        severity: 'warning',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] Low fuel: ${aircraft.callsign}`);
+    }
+
+    // Out of fuel - mark as emergency landing required
+    if (fuelPercent <= 0) {
+      aircraft.emergencyType = 'fuel';
+      aircraft.fuel = 0;
+    }
+  }
+
+  /**
+   * Handle a conflict between aircraft
+   */
+  private handleConflict(conflict: Conflict): void {
+    const aircraft1 = this.gameState.aircraft[conflict.aircraft1];
+    const aircraft2 = this.gameState.aircraft[conflict.aircraft2];
+
+    if (!aircraft1 || !aircraft2) return;
+
+    // Check if this is a new conflict
+    if (!this.collisionDetector.isNewConflict(conflict.aircraft1, conflict.aircraft2)) {
+      return; // Don't spam events for ongoing conflicts
+    }
+
+    const callsigns = `${aircraft1.callsign} and ${aircraft2.callsign}`;
+
+    if (conflict.severity === 'collision') {
+      // Collision occurred
+      this.gameState.collisions++;
+      this.gameState.score += POINTS.collision;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'collision',
+        timestamp: Date.now(),
+        aircraftIds: [conflict.aircraft1, conflict.aircraft2],
+        message: `COLLISION! ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft separation`,
+        severity: 'critical',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] COLLISION: ${callsigns}`);
+    } else if (conflict.severity === 'near-miss') {
+      // Near miss
+      this.gameState.nearMisses++;
+      this.gameState.score += POINTS.nearMiss;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'near_miss',
+        timestamp: Date.now(),
+        aircraftIds: [conflict.aircraft1, conflict.aircraft2],
+        message: `NEAR MISS: ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft`,
+        severity: 'critical',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] NEAR MISS: ${callsigns}`);
+    } else {
+      // Conflict warning
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'conflict_detected',
+        timestamp: Date.now(),
+        aircraftIds: [conflict.aircraft1, conflict.aircraft2],
+        message: `Traffic conflict: ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft`,
+        severity: 'warning',
+      });
+    }
   }
 
   /**

@@ -71,6 +71,7 @@ export interface GameState {
   // Time
   gameTime: number; // Seconds since start
   isPaused: boolean;
+  timeScale: number; // Speed multiplier (1x-30x)
 }
 
 export interface StateDelta {

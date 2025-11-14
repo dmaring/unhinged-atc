@@ -108,13 +108,133 @@
 - **GameState**: Aircraft map, controllers, airspace, score, events
 - **StateDelta**: Aircraft updates, new/removed aircraft, events
 
+## 2025-11-14 - Phase 3: Core Gameplay Implementation
+
+### Collision Detection System
+- **CollisionDetector Module** (`packages/server/src/game/CollisionDetector.ts`):
+  - Real-time proximity detection between all aircraft pairs
+  - Separation standards enforcement (5 NM horizontal, 1000 ft vertical)
+  - Three severity levels:
+    - **Warning**: Proximity alert, potential conflict
+    - **Near-miss**: Both horizontal and vertical separation violated
+    - **Collision**: Very close proximity (<0.5 NM, <500 ft)
+  - Conflict state tracking to prevent event spam
+  - Automatic collision consequence handling (aircraft marked as collided, speed set to 0)
+
+- **Visual Indicators**:
+  - Orange dashed warning circles around aircraft in conflict
+  - Color-coded aircraft based on state:
+    - Red: Collided
+    - Orange: In conflict
+    - Gold: On approach
+    - Orange-red: Low fuel
+    - Cyan: Selected
+    - Green: Normal
+
+- **Scoring Integration**:
+  - Near-miss penalty: -100 points
+  - Collision penalty: -500 points
+  - Real-time game state tracking (nearMisses, collisions counters)
+
+### Fuel Management System
+- **Fuel Consumption**:
+  - Realistic fuel burn based on speed and altitude
+  - Higher consumption at low altitudes and high speeds
+  - Time-scaled fuel depletion (maintains 15x time scale)
+
+- **Warning System**:
+  - Low fuel warning: <30% fuel remaining
+  - Fuel emergency: <10% fuel remaining
+  - Emergency type marked on aircraft
+  - Fuel emergency penalty: -75 points
+
+- **Visual Indicators**:
+  - Fuel percentage displayed for low fuel aircraft
+  - "FUEL X%" emergency indicator in red
+  - Orange-red aircraft color for low fuel
+  - Real-time fuel tracking in control panel
+
+### Landing System
+- **LandingSystem Module** (`packages/server/src/game/LandingSystem.ts`):
+  - Automatic approach detection within 10 NM of airports
+  - Flight phase transitions (cruise → approach → landing)
+  - Landing criteria validation:
+    - Runway alignment: ±15 degrees
+    - Glideslope: 3-degree approach (300 ft/NM)
+    - Safe speed: ≤200 knots
+    - Proximity: ≤0.5 NM from runway
+    - Altitude: ≤500 ft for touchdown
+
+- **Go-Around Logic**:
+  - Failed landing detection (wrong alignment, altitude, or speed)
+  - Automatic missed approach procedure (climb to 3000 ft)
+  - Go-around penalty: -50 points
+  - Pilot complaint events
+
+- **Landing Scoring**:
+  - Successful landing: +100 points
+  - Fuel efficient landing (>30% fuel): +25 bonus points
+  - Emergency landing penalty: -50 points
+  - Automatic aircraft removal after 5 seconds (taxi to gate)
+
+### Airport Visualization
+- **Radar Display Enhancements**:
+  - Airport symbols (white squares) at airport positions
+  - Runway indicators showing heading orientation
+  - Airport codes labeled (KSFO, KOAK)
+  - Approach phase indicator ("APPR") for aircraft on approach
+
+### Event System Improvements
+- **New Event Types**:
+  - `conflict_detected`: Proximity warnings
+  - `near_miss`: Separation violations
+  - `collision`: Aircraft collisions
+  - `landing_success`: Successful landings
+  - `pilot_complaint`: Go-arounds and issues
+  - `emergency`: Fuel emergencies
+
+- **Event Broadcasting**:
+  - Real-time events sent to clients via `newEvents` in StateDelta
+  - Event deduplication to prevent spam
+  - Recent events limited to last 20
+  - Events displayed with severity levels (info, warning, critical, funny)
+
+### Integration & Testing
+- **Build System**:
+  - TypeScript compilation fixes
+  - Type annotations for Express and Socket.io
+  - Vite environment type declarations
+  - CSS module type support
+  - All packages build successfully
+
+- **Server Integration**:
+  - Collision detection runs every game tick (60 FPS)
+  - Landing checks on every update
+  - Fuel status monitoring
+  - Event generation and broadcasting
+
+- **Client Integration**:
+  - Airports passed to RadarDisplay
+  - Events used for conflict highlighting
+  - Enhanced visual feedback
+  - Real-time state synchronization
+
+### File Changes
+**New Files**:
+- `packages/server/src/game/CollisionDetector.ts` (115 lines)
+- `packages/server/src/game/LandingSystem.ts` (127 lines)
+- `packages/client/src/vite-env.d.ts` (16 lines)
+
+**Modified Files**:
+- `packages/server/src/game/GameRoom.ts`: Added collision detection, fuel warnings, landing system
+- `packages/client/src/components/RadarDisplay/RadarDisplay.tsx`: Added airport rendering, conflict warnings, enhanced indicators
+- `packages/client/src/App.tsx`: Pass airports and events to RadarDisplay
+- `packages/server/src/index.ts`: Type annotations
+- `packages/client/src/hooks/useWebSocket.ts`: Explicit return type
+
 ## Pending Features (Next Session)
 
-### Phase 3: Core Gameplay
-- [ ] Collision detection (aircraft proximity warnings)
-- [ ] Landing system (approach vectors to airports)
-- [ ] Fuel management (low fuel warnings, emergencies)
-- [ ] Scoring system (safe landings, near misses, incidents)
+### Phase 3: Core Gameplay ✅ COMPLETED
 
 ### Phase 4: Visual Enhancements
 - [ ] WebGL CRT shader effects (barrel distortion, chromatic aberration, glow)

@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { wsService } from '../services/websocket';
 
-export function useWebSocket() {
+export function useWebSocket(): {
+  socket: Socket | null;
+  isConnected: boolean;
+  connectionError: string | null;
+} {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);

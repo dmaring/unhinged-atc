@@ -1,27 +1,41 @@
 import { useRef, useEffect, useState } from 'react';
-import { Aircraft, RADAR_CONFIG } from 'shared';
+import { Aircraft, RADAR_CONFIG, Airport, GameEvent } from 'shared';
 import styles from './RadarDisplay.module.css';
 
 interface RadarDisplayProps {
   aircraft: Aircraft[];
+  airports?: Airport[];
+  events?: GameEvent[];
   selectedAircraftId?: string | null;
   onAircraftSelect?: (id: string) => void;
 }
 
 export function RadarDisplay({
   aircraft,
+  airports = [],
+  events = [],
   selectedAircraftId,
   onAircraftSelect,
 }: RadarDisplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const aircraftRef = useRef<Aircraft[]>(aircraft);
+  const airportsRef = useRef<Airport[]>(airports);
+  const eventsRef = useRef<GameEvent[]>(events);
   const selectedIdRef = useRef<string | null>(selectedAircraftId || null);
 
   // Keep refs updated
   useEffect(() => {
     aircraftRef.current = aircraft;
   }, [aircraft]);
+
+  useEffect(() => {
+    airportsRef.current = airports;
+  }, [airports]);
+
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
 
   useEffect(() => {
     selectedIdRef.current = selectedAircraftId || null;
@@ -69,13 +83,36 @@ export function RadarDisplay({
       // Draw center cross
       drawCenterCross(ctx, canvas.width, canvas.height);
 
+      // Draw airports
+      const currentAirports = airportsRef.current;
+      if (currentAirports.length > 0) {
+        currentAirports.forEach((airport) => {
+          drawAirport(ctx, airport, canvas.width, canvas.height);
+        });
+      }
+
+      // Get conflict aircraft IDs from recent events
+      const currentEvents = eventsRef.current;
+      const conflictAircraftIds = new Set<string>();
+      currentEvents
+        .filter((e) => e.type === 'near_miss' || e.type === 'conflict_detected' || e.type === 'collision')
+        .forEach((e) => e.aircraftIds.forEach((id) => conflictAircraftIds.add(id)));
+
       // Draw aircraft using refs (so we always get the latest data)
       const currentAircraft = aircraftRef.current;
       if (currentAircraft.length > 0) {
         console.log('[Render] Drawing', currentAircraft.length, 'aircraft');
         currentAircraft.forEach((ac, idx) => {
           console.log(`[Render] Aircraft ${idx}:`, ac.callsign, 'at', ac.position);
-          drawAircraft(ctx, ac, canvas.width, canvas.height, selectedIdRef.current === ac.id);
+          const isInConflict = conflictAircraftIds.has(ac.id);
+          drawAircraft(
+            ctx,
+            ac,
+            canvas.width,
+            canvas.height,
+            selectedIdRef.current === ac.id,
+            isInConflict
+          );
         });
       }
 
@@ -198,14 +235,69 @@ function drawCenterCross(
   ctx.stroke();
 }
 
+function drawAirport(
+  ctx: CanvasRenderingContext2D,
+  airport: Airport,
+  width: number,
+  height: number
+) {
+  const screenPos = worldToScreen(airport.position, width, height);
+
+  // Draw airport symbol (square with cross)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = 2;
+
+  const size = 8;
+  ctx.fillRect(screenPos.x - size, screenPos.y - size, size * 2, size * 2);
+  ctx.strokeRect(screenPos.x - size, screenPos.y - size, size * 2, size * 2);
+
+  // Draw runways
+  airport.runways.forEach((runway) => {
+    const runwayScreenPos = worldToScreen(runway.position, width, height);
+    ctx.save();
+    ctx.translate(runwayScreenPos.x, runwayScreenPos.y);
+    ctx.rotate((runway.heading * Math.PI) / 180);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(0, 6);
+    ctx.stroke();
+
+    ctx.restore();
+  });
+
+  // Draw airport code
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.fillText(airport.code, screenPos.x + 12, screenPos.y + 4);
+}
+
 function drawAircraft(
   ctx: CanvasRenderingContext2D,
   aircraft: Aircraft,
   width: number,
   height: number,
-  isSelected: boolean
+  isSelected: boolean,
+  isInConflict: boolean
 ) {
   const screenPos = worldToScreen(aircraft.position, width, height);
+
+  // Determine color based on state
+  let aircraftColor: string = RADAR_CONFIG.PRIMARY_COLOR;
+  if (aircraft.hasCollided) {
+    aircraftColor = '#FF0000';
+  } else if (isSelected) {
+    aircraftColor = '#00FFFF';
+  } else if (isInConflict) {
+    aircraftColor = '#FFAA00'; // Orange for conflicts
+  } else if (aircraft.flightPhase === 'approach' || aircraft.flightPhase === 'landing') {
+    aircraftColor = '#FFD700'; // Gold for approaching aircraft
+  } else if (aircraft.fuel < 30) {
+    aircraftColor = '#FF6600'; // Orange-red for low fuel
+  }
 
   // Draw trail
   if (aircraft.trailHistory.length > 1) {
@@ -224,6 +316,17 @@ function drawAircraft(
     ctx.stroke();
   }
 
+  // Draw conflict warning circle
+  if (isInConflict && !aircraft.hasCollided) {
+    ctx.strokeStyle = '#FFAA00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, 25, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Draw aircraft icon (triangle)
   ctx.save();
   ctx.translate(screenPos.x, screenPos.y);
@@ -232,11 +335,7 @@ function drawAircraft(
   ctx.rotate((aircraft.heading * Math.PI) / 180);
 
   const size = RADAR_CONFIG.AIRCRAFT_SIZE;
-  ctx.fillStyle = aircraft.hasCollided
-    ? '#FF0000'
-    : isSelected
-    ? '#00FFFF'
-    : RADAR_CONFIG.PRIMARY_COLOR;
+  ctx.fillStyle = aircraftColor;
 
   ctx.beginPath();
   ctx.moveTo(0, -size); // Nose
@@ -257,7 +356,7 @@ function drawAircraft(
   ctx.restore();
 
   // Draw callsign and data tag
-  ctx.fillStyle = isSelected ? '#00FFFF' : RADAR_CONFIG.PRIMARY_COLOR;
+  ctx.fillStyle = aircraftColor;
   ctx.font = '11px "Share Tech Mono", monospace';
   ctx.fillText(aircraft.callsign, screenPos.x + 12, screenPos.y - 5);
 
@@ -268,10 +367,29 @@ function drawAircraft(
     screenPos.y + 7
   );
 
+  // Draw phase indicator
+  let yOffset = 18;
+  if (aircraft.flightPhase === 'approach') {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 9px "Share Tech Mono", monospace';
+    ctx.fillText('APPR', screenPos.x + 12, screenPos.y + yOffset);
+    yOffset += 11;
+  }
+
   // Draw emergency indicator
-  if (aircraft.emergencyType) {
+  if (aircraft.emergencyType === 'fuel') {
     ctx.fillStyle = '#FF0000';
     ctx.font = 'bold 10px "Share Tech Mono", monospace';
-    ctx.fillText('EMERG', screenPos.x + 12, screenPos.y + 18);
+    ctx.fillText(`FUEL ${aircraft.fuel.toFixed(0)}%`, screenPos.x + 12, screenPos.y + yOffset);
+    yOffset += 11;
+  } else if (aircraft.emergencyType) {
+    ctx.fillStyle = '#FF0000';
+    ctx.font = 'bold 10px "Share Tech Mono", monospace';
+    ctx.fillText('EMERG', screenPos.x + 12, screenPos.y + yOffset);
+    yOffset += 11;
+  } else if (aircraft.fuel < 30) {
+    ctx.fillStyle = '#FF6600';
+    ctx.font = '9px "Share Tech Mono", monospace';
+    ctx.fillText(`${aircraft.fuel.toFixed(0)}%`, screenPos.x + 12, screenPos.y + yOffset);
   }
 }

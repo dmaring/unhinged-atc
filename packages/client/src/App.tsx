@@ -5,11 +5,12 @@ import { useGameSync } from './hooks/useGameSync'
 import { useGameStore } from './stores/gameStore'
 import { RadarDisplay } from './components/RadarDisplay'
 import { ControlPanel } from './components/ControlPanel'
+import { SpeedControl } from './components/SpeedControl'
 
 function App() {
   const [isLoading, setIsLoading] = useState(true)
   const { socket, isConnected, connectionError } = useWebSocket()
-  const { sendCommand } = useGameSync(socket, isConnected)
+  const { sendCommand, setTimeScale } = useGameSync(socket, isConnected)
 
   const gameState = useGameStore((state) => state.gameState)
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
@@ -17,6 +18,11 @@ function App() {
 
   // Convert aircraft object to array
   const aircraftArray = gameState ? Object.values(gameState.aircraft) : []
+
+  // Get airports and events
+  const airports = gameState?.airspace?.airports || []
+  const events = gameState?.recentEvents || []
+  const currentSpeed = gameState?.timeScale || 10
 
   // Get selected aircraft object
   const selectedAircraft = selectedAircraftId && gameState
@@ -57,11 +63,17 @@ function App() {
         <div className="radar-section">
           <RadarDisplay
             aircraft={aircraftArray}
+            airports={airports}
+            events={events}
             selectedAircraftId={selectedAircraftId}
             onAircraftSelect={(id) => setSelectedAircraft(id || null)}
           />
         </div>
         <div className="control-section">
+          <SpeedControl
+            currentSpeed={currentSpeed}
+            onSpeedChange={setTimeScale}
+          />
           <ControlPanel
             selectedAircraft={selectedAircraft}
             onCommand={sendCommand}
