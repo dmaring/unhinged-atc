@@ -9,6 +9,7 @@ interface ChaosPanelProps {
 
 export function ChaosPanel({ chaosAbilities, onChaosCommand }: ChaosPanelProps) {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Update cooldowns every second
   useEffect(() => {
@@ -49,42 +50,49 @@ export function ChaosPanel({ chaosAbilities, onChaosCommand }: ChaosPanelProps) 
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.title}>CHAOS CONTROLS</div>
-        <div className={styles.subtitle}>Unhinged Mode</div>
+    <div className={`${styles.container} ${isCollapsed ? styles.collapsed : ''}`}>
+      <div className={styles.header} onClick={() => setIsCollapsed(!isCollapsed)}>
+        <div className={styles.headerLeft}>
+          <div className={styles.title}>CHAOS CONTROLS</div>
+          <div className={styles.subtitle}>Unhinged Mode</div>
+        </div>
+        <button className={styles.collapseButton}>
+          {isCollapsed ? '▼' : '▲'}
+        </button>
       </div>
 
-      <div className={styles.abilities}>
-        {(Object.entries(CHAOS_ABILITIES) as Array<[ChaosType, typeof CHAOS_ABILITIES[ChaosType]]>).map(
-          ([chaosType, config]) => {
-            const state = chaosAbilities[chaosType];
-            const cooldown = cooldowns[chaosType] || 0;
-            const isReady = cooldown <= 0;
-            const usageCount = state?.usageCount || 0;
+      {!isCollapsed && (
+        <div className={styles.abilities}>
+          {(Object.entries(CHAOS_ABILITIES) as Array<[ChaosType, typeof CHAOS_ABILITIES[ChaosType]]>).map(
+            ([chaosType, config]) => {
+              const state = chaosAbilities[chaosType];
+              const cooldown = cooldowns[chaosType] || 0;
+              const isReady = cooldown <= 0;
+              const usageCount = state?.usageCount || 0;
 
-            return (
-              <button
-                key={chaosType}
-                className={`${styles.chaosButton} ${isReady ? styles.ready : styles.cooldown}`}
-                onClick={() => handleChaosClick(chaosType)}
-                disabled={!isReady}
-              >
-                <div className={styles.buttonContent}>
-                  <div className={styles.chaosName}>{config.name}</div>
-                  <div className={styles.chaosDescription}>{config.description}</div>
-                  <div className={styles.buttonFooter}>
-                    <div className={styles.cooldownText}>{formatCooldown(cooldown)}</div>
-                    {usageCount > 0 && (
-                      <div className={styles.usageCount}>×{usageCount}</div>
-                    )}
+              return (
+                <button
+                  key={chaosType}
+                  className={`${styles.chaosButton} ${isReady ? styles.ready : styles.cooldown}`}
+                  onClick={() => handleChaosClick(chaosType)}
+                  disabled={!isReady}
+                >
+                  <div className={styles.buttonContent}>
+                    <div className={styles.chaosName}>{config.name}</div>
+                    <div className={styles.chaosDescription}>{config.description}</div>
+                    <div className={styles.buttonFooter}>
+                      <div className={styles.cooldownText}>{formatCooldown(cooldown)}</div>
+                      {usageCount > 0 && (
+                        <div className={styles.usageCount}>×{usageCount}</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          }
-        )}
-      </div>
+                </button>
+              );
+            }
+          )}
+        </div>
+      )}
     </div>
   );
 }

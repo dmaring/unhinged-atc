@@ -11,6 +11,7 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
   const [heading, setHeading] = useState('');
   const [altitude, setAltitude] = useState('');
   const [speed, setSpeed] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleTurnLeft = () => {
     if (!selectedAircraft) return;
@@ -67,103 +68,119 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
 
   if (!selectedAircraft) {
     return (
-      <div className={styles.panel}>
-        <div className={styles.header}>CONTROL PANEL</div>
-        <div className={styles.noSelection}>
-          <p>SELECT AN AIRCRAFT</p>
-          <p style={{ fontSize: '12px', opacity: 0.7 }}>
-            Click on an aircraft on the radar to select it
-          </p>
+      <div className={`${styles.panel} ${isCollapsed ? styles.collapsed : ''}`}>
+        <div className={styles.header} onClick={() => setIsCollapsed(!isCollapsed)}>
+          <div className={styles.title}>CONTROL PANEL</div>
+          <button className={styles.collapseButton}>
+            {isCollapsed ? '▼' : '▲'}
+          </button>
         </div>
+        {!isCollapsed && (
+          <div className={styles.noSelection}>
+            <p>SELECT AN AIRCRAFT</p>
+            <p style={{ fontSize: '12px', opacity: 0.7 }}>
+              Click on an aircraft on the radar to select it
+            </p>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.header}>CONTROL PANEL</div>
-
-      <div className={styles.section}>
-        <div className={styles.aircraftInfo}>
-          <div className={styles.callsign}>{selectedAircraft.callsign}</div>
-          <div className={styles.type}>{selectedAircraft.type}</div>
-        </div>
-
-        <div className={styles.dataLine}>
-          <span>ALT:</span> <span className={styles.value}>{Math.round(selectedAircraft.altitude)} ft (FL{Math.round(selectedAircraft.altitude / 100)})</span>
-        </div>
-        <div className={styles.dataLine}>
-          <span>HDG:</span> <span className={styles.value}>{Math.round(selectedAircraft.heading)}°</span>
-        </div>
-        <div className={styles.dataLine}>
-          <span>SPD:</span> <span className={styles.value}>{Math.round(selectedAircraft.speed)} kts</span>
-        </div>
-        <div className={styles.dataLine}>
-          <span>FUEL:</span> <span className={styles.value}>{Math.round(selectedAircraft.fuel)}%</span>
-        </div>
+    <div className={`${styles.panel} ${isCollapsed ? styles.collapsed : ''}`}>
+      <div className={styles.header} onClick={() => setIsCollapsed(!isCollapsed)}>
+        <div className={styles.title}>CONTROL PANEL</div>
+        <button className={styles.collapseButton}>
+          {isCollapsed ? '▼' : '▲'}
+        </button>
       </div>
 
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>QUICK COMMANDS</div>
-        <div className={styles.buttonGrid}>
-          <button onClick={handleTurnLeft}>⬅ LEFT 10°</button>
-          <button onClick={handleTurnRight}>➡ RIGHT 10°</button>
-          <button onClick={handleClimb}>⬆ CLIMB 1000ft</button>
-          <button onClick={handleDescend}>⬇ DESCEND 1000ft</button>
-        </div>
-      </div>
+      {!isCollapsed && (
+        <>
+          <div className={styles.section}>
+            <div className={styles.aircraftInfo}>
+              <div className={styles.callsign}>{selectedAircraft.callsign}</div>
+              <div className={styles.type}>{selectedAircraft.type}</div>
+            </div>
 
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>PRECISE CONTROL</div>
-
-        <div className={styles.inputGroup}>
-          <label>Heading (0-360°)</label>
-          <div className={styles.inputRow}>
-            <input
-              type="number"
-              value={heading}
-              onChange={(e) => setHeading(e.target.value)}
-              placeholder="270"
-              min="0"
-              max="360"
-            />
-            <button onClick={handleSetHeading}>SET</button>
+            <div className={styles.dataLine}>
+              <span>ALT:</span> <span className={styles.value}>{Math.round(selectedAircraft.altitude)} ft → {Math.round(selectedAircraft.targetAltitude)} ft</span>
+            </div>
+            <div className={styles.dataLine}>
+              <span>HDG:</span> <span className={styles.value}>{Math.round(selectedAircraft.heading)}° → {Math.round(selectedAircraft.targetHeading)}°</span>
+            </div>
+            <div className={styles.dataLine}>
+              <span>SPD:</span> <span className={styles.value}>{Math.round(selectedAircraft.speed)} kts → {Math.round(selectedAircraft.targetSpeed)} kts</span>
+            </div>
+            <div className={styles.dataLine}>
+              <span>FUEL:</span> <span className={styles.value}>{Math.round(selectedAircraft.fuel)}%</span>
+            </div>
           </div>
-        </div>
 
-        <div className={styles.inputGroup}>
-          <label>Altitude (ft)</label>
-          <div className={styles.inputRow}>
-            <input
-              type="number"
-              value={altitude}
-              onChange={(e) => setAltitude(e.target.value)}
-              placeholder="25000"
-              min="0"
-              max="45000"
-            />
-            <button onClick={handleSetAltitude}>SET</button>
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>QUICK COMMANDS</div>
+            <div className={styles.buttonGrid}>
+              <button onClick={handleTurnLeft}>⬅ LEFT 10°</button>
+              <button onClick={handleTurnRight}>➡ RIGHT 10°</button>
+              <button onClick={handleClimb}>⬆ CLIMB 1000ft</button>
+              <button onClick={handleDescend}>⬇ DESCEND 1000ft</button>
+            </div>
           </div>
-        </div>
 
-        <div className={styles.inputGroup}>
-          <label>Speed (kts)</label>
-          <div className={styles.inputRow}>
-            <input
-              type="number"
-              value={speed}
-              onChange={(e) => setSpeed(e.target.value)}
-              placeholder="350"
-            />
-            <button onClick={handleSetSpeed}>SET</button>
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>PRECISE CONTROL</div>
+
+            <div className={styles.inputGroup}>
+              <label>Heading (0-360°)</label>
+              <div className={styles.inputRow}>
+                <input
+                  type="number"
+                  value={heading}
+                  onChange={(e) => setHeading(e.target.value)}
+                  placeholder="270"
+                  min="0"
+                  max="360"
+                />
+                <button onClick={handleSetHeading}>SET</button>
+              </div>
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Altitude (ft)</label>
+              <div className={styles.inputRow}>
+                <input
+                  type="number"
+                  value={altitude}
+                  onChange={(e) => setAltitude(e.target.value)}
+                  placeholder="25000"
+                  min="0"
+                  max="45000"
+                />
+                <button onClick={handleSetAltitude}>SET</button>
+              </div>
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label>Speed (kts)</label>
+              <div className={styles.inputRow}>
+                <input
+                  type="number"
+                  value={speed}
+                  onChange={(e) => setSpeed(e.target.value)}
+                  placeholder="350"
+                />
+                <button onClick={handleSetSpeed}>SET</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {selectedAircraft.emergencyType && (
-        <div className={styles.emergency}>
-          ⚠️ EMERGENCY: {selectedAircraft.emergencyType.toUpperCase()}
-        </div>
+          {selectedAircraft.emergencyType && (
+            <div className={styles.emergency}>
+              ⚠️ EMERGENCY: {selectedAircraft.emergencyType.toUpperCase()}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

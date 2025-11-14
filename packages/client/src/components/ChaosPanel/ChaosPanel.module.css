@@ -13,6 +13,25 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 0, 255, 0.3);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.header:hover {
+  background: rgba(255, 0, 255, 0.1);
+}
+
+.collapsed .header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .title {
@@ -27,10 +46,39 @@
   font-style: italic;
 }
 
+.collapseButton {
+  background: none;
+  border: none;
+  color: #ff00ff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.collapseButton:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
 .abilities {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  animation: slideDown 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chaosButton {

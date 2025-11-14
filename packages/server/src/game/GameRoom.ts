@@ -145,6 +145,9 @@ export class GameRoom {
         altitude: aircraft.altitude,
         heading: aircraft.heading,
         speed: aircraft.speed,
+        targetAltitude: aircraft.targetAltitude,
+        targetHeading: aircraft.targetHeading,
+        targetSpeed: aircraft.targetSpeed,
         fuel: aircraft.fuel,
         trailHistory: aircraft.trailHistory,
       });

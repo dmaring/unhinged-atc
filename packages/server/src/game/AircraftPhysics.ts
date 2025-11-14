@@ -46,7 +46,16 @@ export class AircraftPhysics {
   }
 
   private updateHeading(aircraft: Aircraft, deltaTime: number): void {
-    const headingDiff = this.normalizeAngle(aircraft.targetHeading - aircraft.heading);
+    // Calculate shortest angular distance (returns value between -180 and +180)
+    // Negative = turn left, Positive = turn right
+    let headingDiff = aircraft.targetHeading - aircraft.heading;
+
+    // Normalize to shortest path
+    if (headingDiff > 180) {
+      headingDiff -= 360;
+    } else if (headingDiff < -180) {
+      headingDiff += 360;
+    }
 
     if (Math.abs(headingDiff) < 0.1) {
       aircraft.heading = aircraft.targetHeading;
