@@ -20,8 +20,10 @@ function App() {
   // Convert aircraft object to array
   const aircraftArray = gameState ? Object.values(gameState.aircraft) : []
 
-  // Get airports and events
+  // Get airports, waypoints, weather, and events
   const airports = gameState?.airspace?.airports || []
+  const waypoints = gameState?.airspace?.waypoints || []
+  const weather = gameState?.airspace?.weather || []
   const events = gameState?.recentEvents || []
   const currentSpeed = gameState?.timeScale || 10
   const chaosAbilities = gameState?.chaosAbilities || {}
@@ -66,6 +68,8 @@ function App() {
           <RadarDisplay
             aircraft={aircraftArray}
             airports={airports}
+            waypoints={waypoints}
+            weather={weather}
             events={events}
             selectedAircraftId={selectedAircraftId}
             onAircraftSelect={(id) => setSelectedAircraft(id || null)}

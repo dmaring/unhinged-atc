@@ -11,13 +11,15 @@ import {
   POINTS,
   ChaosCommand,
   ChaosType,
-  CHAOS_ABILITIES
+  CHAOS_ABILITIES,
+  WeatherCell
 } from 'shared';
 import { AircraftPhysics } from './AircraftPhysics.js';
 import { CommandProcessor } from './CommandProcessor.js';
 import { CollisionDetector } from './CollisionDetector.js';
 import { LandingSystem } from './LandingSystem.js';
 import { ChaosProcessor } from './ChaosProcessor.js';
+import { WeatherSystem } from './WeatherSystem.js';
 import { randomBytes } from 'crypto';
 
 export class GameRoom {
@@ -27,10 +29,12 @@ export class GameRoom {
   private collisionDetector: CollisionDetector;
   private landingSystem: LandingSystem;
   private chaosProcessor: ChaosProcessor;
+  private weatherSystem: WeatherSystem;
   private aircraftCounter = 0;
   private lastSpawnTime = 0;
   private fuelWarnings: Set<string> = new Set(); // Track aircraft with fuel warnings
   private fuelEmergencies: Set<string> = new Set(); // Track aircraft with fuel emergencies
+  private previousWeatherCells: WeatherCell[] = [];
 
   constructor(roomId: string) {
     this.physics = new AircraftPhysics();
@@ -38,6 +42,7 @@ export class GameRoom {
     this.collisionDetector = new CollisionDetector(this.physics);
     this.landingSystem = new LandingSystem(this.physics);
     this.chaosProcessor = new ChaosProcessor();
+    this.weatherSystem = new WeatherSystem();
 
     // Initialize game state
     this.gameState = {
@@ -70,8 +75,30 @@ export class GameRoom {
             ],
           },
         ],
-        waypoints: [],
+        waypoints: [
+          // Entry/Exit Points at airspace edges
+          { name: 'ENTRY_N', position: { x: 0, y: 22 } },
+          { name: 'ENTRY_S', position: { x: 0, y: -22 } },
+          { name: 'ENTRY_E', position: { x: 22, y: 0 } },
+          { name: 'ENTRY_W', position: { x: -22, y: 0 } },
+
+          // KSFO Approach Fixes
+          { name: 'KSFO_IAF_N', position: { x: -15, y: 5 }, altitude: 5000 },
+          { name: 'KSFO_IAF_S', position: { x: -15, y: -20 }, altitude: 5000 },
+          { name: 'KSFO_FAF', position: { x: -15, y: -5 }, altitude: 2000 },
+
+          // KOAK Approach Fixes
+          { name: 'KOAK_IAF_N', position: { x: 10, y: 20 }, altitude: 4000 },
+          { name: 'KOAK_IAF_E', position: { x: 20, y: 12 }, altitude: 4000 },
+          { name: 'KOAK_FAF', position: { x: 15, y: 12 }, altitude: 2000 },
+
+          // Intermediate Waypoints
+          { name: 'MIDPT', position: { x: 0, y: 0 } },
+          { name: 'HOLD_1', position: { x: -5, y: 15 } },
+          { name: 'HOLD_2', position: { x: 5, y: -15 } },
+        ],
         restrictedZones: [],
+        weather: [],
       },
       controllers: {},
       score: 0,
@@ -193,6 +220,41 @@ export class GameRoom {
         this.handleLanding(attempt);
       });
     }
+
+    // Update weather system
+    const updatedWeather = this.weatherSystem.update(
+      deltaTime,
+      this.gameState.gameTime,
+      this.gameState.airspace.bounds
+    );
+
+    // Update airspace weather
+    this.gameState.airspace.weather = updatedWeather;
+
+    // Check for aircraft in weather
+    const weatherInteraction = this.weatherSystem.checkAircraftInWeather(
+      Object.values(this.gameState.aircraft),
+      updatedWeather
+    );
+
+    // Add weather events to game state
+    if (weatherInteraction.events.length > 0) {
+      weatherInteraction.events.forEach((event) => this.addEvent(event));
+      if (!delta.newEvents) delta.newEvents = [];
+      delta.newEvents.push(...weatherInteraction.events);
+    }
+
+    // Add weather updates to delta
+    delta.weatherUpdates = updatedWeather;
+
+    // Add removed weather IDs to delta
+    const removedWeatherIds = this.weatherSystem.getRemovedWeatherIds(this.previousWeatherCells);
+    if (removedWeatherIds.length > 0) {
+      delta.removedWeatherIds = removedWeatherIds;
+    }
+
+    // Store current weather for next delta
+    this.previousWeatherCells = [...updatedWeather];
 
     return delta;
   }

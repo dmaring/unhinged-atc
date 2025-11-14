@@ -1,10 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
-import { Aircraft, RADAR_CONFIG, Airport, GameEvent } from 'shared';
+import { Aircraft, RADAR_CONFIG, Airport, GameEvent, Waypoint, WeatherCell } from 'shared';
 import styles from './RadarDisplay.module.css';
+import { ShaderRenderer, ShaderSettings } from '../../utils/ShaderRenderer';
 
 interface RadarDisplayProps {
   aircraft: Aircraft[];
   airports?: Airport[];
+  waypoints?: Waypoint[];
+  weather?: WeatherCell[];
   events?: GameEvent[];
   selectedAircraftId?: string | null;
   onAircraftSelect?: (id: string) => void;
@@ -13,16 +16,31 @@ interface RadarDisplayProps {
 export function RadarDisplay({
   aircraft,
   airports = [],
+  waypoints = [],
+  weather = [],
   events = [],
   selectedAircraftId,
   onAircraftSelect,
 }: RadarDisplayProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const webglCanvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const shaderRendererRef = useRef<ShaderRenderer | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const aircraftRef = useRef<Aircraft[]>(aircraft);
   const airportsRef = useRef<Airport[]>(airports);
+  const waypointsRef = useRef<Waypoint[]>(waypoints);
+  const weatherRef = useRef<WeatherCell[]>(weather);
   const eventsRef = useRef<GameEvent[]>(events);
   const selectedIdRef = useRef<string | null>(selectedAircraftId || null);
+
+  // CRT shader settings (all effects disabled for maximum text clarity)
+  const shaderSettings = useRef<ShaderSettings>({
+    scanlineIntensity: 0.0,         // Disabled
+    barrelDistortion: 0.0,           // Disabled
+    chromaticAberration: 0.0,        // Disabled
+    glowIntensity: 0.0,              // Disabled
+    vignetteStrength: 0.0,           // Disabled
+  });
 
   // Keep refs updated
   useEffect(() => {
@@ -34,6 +52,14 @@ export function RadarDisplay({
   }, [airports]);
 
   useEffect(() => {
+    waypointsRef.current = waypoints;
+  }, [waypoints]);
+
+  useEffect(() => {
+    weatherRef.current = weather;
+  }, [weather]);
+
+  useEffect(() => {
     eventsRef.current = events;
   }, [events]);
 
@@ -41,15 +67,53 @@ export function RadarDisplay({
     selectedIdRef.current = selectedAircraftId || null;
   }, [selectedAircraftId]);
 
+  // Initialize WebGL shader renderer and offscreen canvas
+  useEffect(() => {
+    if (!webglCanvasRef.current) return;
+
+    try {
+      // Create offscreen canvas for 2D rendering
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvasRef.current = offscreenCanvas;
+
+      // Initialize shader renderer
+      const renderer = new ShaderRenderer(webglCanvasRef.current);
+      shaderRendererRef.current = renderer;
+
+      console.log('[RadarDisplay] WebGL shader renderer initialized');
+    } catch (error) {
+      console.error('[RadarDisplay] Failed to initialize WebGL:', error);
+      // Fallback: could display without shaders
+    }
+
+    return () => {
+      if (shaderRendererRef.current) {
+        shaderRendererRef.current.dispose();
+      }
+    };
+  }, []);
+
   // Handle canvas resize
   useEffect(() => {
     const updateSize = () => {
-      if (canvasRef.current?.parentElement) {
-        const parent = canvasRef.current.parentElement;
-        setCanvasSize({
+      if (webglCanvasRef.current?.parentElement) {
+        const parent = webglCanvasRef.current.parentElement;
+        const newSize = {
           width: parent.clientWidth,
           height: parent.clientHeight,
-        });
+        };
+        setCanvasSize(newSize);
+
+        // Resize offscreen canvas
+        if (offscreenCanvasRef.current) {
+          offscreenCanvasRef.current.width = newSize.width;
+          offscreenCanvasRef.current.height = newSize.height;
+        }
+
+        // Resize WebGL canvas
+        if (shaderRendererRef.current) {
+          shaderRendererRef.current.resize(newSize.width, newSize.height);
+        }
       }
     };
 
@@ -60,34 +124,50 @@ export function RadarDisplay({
 
   // Continuous render loop using requestAnimationFrame
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const offscreenCanvas = offscreenCanvasRef.current;
+    if (!offscreenCanvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = offscreenCanvas.getContext('2d');
     if (!ctx) return;
 
     let animationFrameId: number;
 
     const render = () => {
-      // Set canvas size
-      canvas.width = canvasSize.width;
-      canvas.height = canvasSize.height;
+      // Render to offscreen canvas (no need to set size, it's done in resize effect)
+      const width = offscreenCanvas.width;
+      const height = offscreenCanvas.height;
 
       // Clear canvas
       ctx.fillStyle = RADAR_CONFIG.BACKGROUND_COLOR;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, width, height);
 
       // Draw range rings
-      drawRangeRings(ctx, canvas.width, canvas.height);
+      drawRangeRings(ctx, width, height);
 
       // Draw center cross
-      drawCenterCross(ctx, canvas.width, canvas.height);
+      drawCenterCross(ctx, width, height);
+
+      // Draw weather (render behind other elements)
+      const currentWeather = weatherRef.current;
+      if (currentWeather.length > 0) {
+        currentWeather.forEach((weatherCell) => {
+          drawWeather(ctx, weatherCell, width, height);
+        });
+      }
 
       // Draw airports
       const currentAirports = airportsRef.current;
       if (currentAirports.length > 0) {
         currentAirports.forEach((airport) => {
-          drawAirport(ctx, airport, canvas.width, canvas.height);
+          drawAirport(ctx, airport, width, height);
+        });
+      }
+
+      // Draw waypoints
+      const currentWaypoints = waypointsRef.current;
+      if (currentWaypoints.length > 0) {
+        currentWaypoints.forEach((waypoint) => {
+          drawWaypoint(ctx, waypoint, width, height);
         });
       }
 
@@ -108,12 +188,21 @@ export function RadarDisplay({
           drawAircraft(
             ctx,
             ac,
-            canvas.width,
-            canvas.height,
+            width,
+            height,
             selectedIdRef.current === ac.id,
             isInConflict
           );
         });
+      }
+
+      // Apply CRT shader effects and render to WebGL canvas
+      if (shaderRendererRef.current) {
+        shaderRendererRef.current.render(
+          offscreenCanvas,
+          shaderSettings.current,
+          performance.now() / 1000
+        );
       }
 
       // Continue the loop
@@ -131,9 +220,9 @@ export function RadarDisplay({
 
   // Handle click
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!onAircraftSelect || !canvasRef.current) return;
+    if (!onAircraftSelect || !webglCanvasRef.current) return;
 
-    const canvas = canvasRef.current;
+    const canvas = webglCanvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -156,7 +245,7 @@ export function RadarDisplay({
   return (
     <div className={styles.radar}>
       <canvas
-        ref={canvasRef}
+        ref={webglCanvasRef}
         className={styles.canvas}
         onClick={handleClick}
       />
@@ -273,6 +362,95 @@ function drawAirport(
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
   ctx.font = '11px "Share Tech Mono", monospace';
   ctx.fillText(airport.code, screenPos.x + 12, screenPos.y + 4);
+}
+
+function drawWaypoint(
+  ctx: CanvasRenderingContext2D,
+  waypoint: Waypoint,
+  width: number,
+  height: number
+) {
+  const screenPos = worldToScreen(waypoint.position, width, height);
+
+  // Draw waypoint symbol (diamond)
+  ctx.strokeStyle = 'rgba(100, 200, 255, 0.7)'; // Light blue
+  ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+  ctx.lineWidth = 1.5;
+
+  const size = 5;
+  ctx.beginPath();
+  ctx.moveTo(screenPos.x, screenPos.y - size); // Top
+  ctx.lineTo(screenPos.x + size, screenPos.y); // Right
+  ctx.lineTo(screenPos.x, screenPos.y + size); // Bottom
+  ctx.lineTo(screenPos.x - size, screenPos.y); // Left
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw waypoint name
+  ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+  ctx.font = '9px "Share Tech Mono", monospace';
+  ctx.fillText(waypoint.name, screenPos.x + 8, screenPos.y + 3);
+
+  // Draw altitude restriction if present
+  if (waypoint.altitude !== undefined) {
+    ctx.font = '8px "Share Tech Mono", monospace';
+    ctx.fillStyle = 'rgba(100, 200, 255, 0.6)';
+    ctx.fillText(`${waypoint.altitude}'`, screenPos.x + 8, screenPos.y + 12);
+  }
+}
+
+function drawWeather(
+  ctx: CanvasRenderingContext2D,
+  weatherCell: WeatherCell,
+  width: number,
+  height: number
+) {
+  const screenPos = worldToScreen(weatherCell.position, width, height);
+  const scale = Math.min(width, height) / 40;
+  const radius = weatherCell.radius * scale;
+
+  // Color and style based on weather type
+  let fillColor = 'rgba(200, 200, 200, '; // Default light gray for clouds
+  let strokeColor = 'rgba(180, 180, 180, ';
+  let symbol = '';
+
+  switch (weatherCell.type) {
+    case 'cloud':
+      fillColor = `rgba(200, 200, 200, ${weatherCell.intensity * 0.3})`;
+      strokeColor = `rgba(180, 180, 180, ${weatherCell.intensity * 0.5})`;
+      symbol = '☁';
+      break;
+    case 'storm':
+      fillColor = `rgba(255, 100, 0, ${weatherCell.intensity * 0.25})`;
+      strokeColor = `rgba(255, 50, 0, ${weatherCell.intensity * 0.6})`;
+      symbol = '⚡';
+      break;
+    case 'turbulence':
+      fillColor = `rgba(255, 255, 100, ${weatherCell.intensity * 0.2})`;
+      strokeColor = `rgba(255, 255, 0, ${weatherCell.intensity * 0.5})`;
+      symbol = '〰';
+      break;
+  }
+
+  // Draw weather cell circle
+  ctx.fillStyle = fillColor;
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw weather type symbol in center
+  ctx.font = '20px "Share Tech Mono", monospace';
+  ctx.fillStyle = strokeColor.replace(/[\d.]+\)$/, '0.8)'); // Solid opacity for symbol
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(symbol, screenPos.x, screenPos.y);
+  ctx.textAlign = 'left'; // Reset alignment
+  ctx.textBaseline = 'alphabetic'; // Reset baseline
 }
 
 function drawAircraft(

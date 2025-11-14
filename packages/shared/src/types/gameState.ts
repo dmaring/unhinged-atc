@@ -2,6 +2,7 @@
 
 import { Aircraft, Position, Waypoint } from "./aircraft.js";
 import { GameEvent } from "./events.js";
+import { WeatherCell } from "./weather.js";
 
 export interface Runway {
   name: string; // "28L", "01R"
@@ -35,6 +36,7 @@ export interface Airspace {
   airports: Airport[];
   waypoints: Waypoint[];
   restrictedZones: RestrictedZone[];
+  weather: WeatherCell[];
 }
 
 export interface Controller {
@@ -82,6 +84,8 @@ export interface StateDelta {
   aircraftUpdates?: Partial<Aircraft>[];
   newAircraft?: Aircraft[];
   removedAircraftIds?: string[];
+  weatherUpdates?: WeatherCell[];
+  removedWeatherIds?: string[];
   scoreUpdate?: number;
   newEvents?: GameEvent[];
   controllerUpdate?: {

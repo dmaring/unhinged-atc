@@ -232,6 +232,133 @@
 - `packages/server/src/index.ts`: Type annotations
 - `packages/client/src/hooks/useWebSocket.ts`: Explicit return type
 
+## 2025-11-14 - Phase 4: Visual Enhancements Implementation
+
+### Waypoint Navigation System
+- **Waypoint Markers** (`RadarDisplay.tsx`):
+  - 13 waypoints strategically placed across airspace
+  - Entry/exit points at airspace edges (ENTRY_N, ENTRY_S, ENTRY_E, ENTRY_W)
+  - KSFO approach fixes (KSFO_IAF_N, KSFO_IAF_S, KSFO_FAF) with altitude restrictions
+  - KOAK approach fixes (KOAK_IAF_N, KOAK_IAF_E, KOAK_FAF) with altitude restrictions
+  - Intermediate waypoints (MIDPT, HOLD_1, HOLD_2)
+  - Visual rendering with light blue diamond symbols
+  - Waypoint labels with altitude restrictions displayed
+
+- **Integration**:
+  - Waypoints defined in `GameRoom.ts` airspace initialization
+  - Passed through game state to client
+  - Rendered on radar with distinct visual style from aircraft and airports
+
+### Dynamic Weather System
+- **Weather Generation** (`WeatherSystem.ts`):
+  - Three weather types: clouds, storms, turbulence
+  - Automatic spawning every 2 minutes (configurable interval)
+  - Weather cells spawn at random airspace edges
+  - Realistic movement with velocity vectors (0.5 NM/s drift)
+  - Automatic expiration (2-5 minutes based on type)
+  - Out-of-bounds cleanup
+
+- **Weather Types**:
+  - **Clouds**: 8 NM radius, 5 min duration, light gray, reduce visibility
+  - **Storms**: 6 NM radius, 4 min duration, orange/red, hazard zones (-25 points penalty)
+  - **Turbulence**: 4 NM radius, 2 min duration, yellow, aircraft instability
+
+- **Gameplay Integration**:
+  - Real-time collision detection between aircraft and weather cells
+  - Scoring penalties for entering storm cells
+  - Event generation for weather interactions
+  - Weather state synchronized via WebSocket deltas
+
+- **Visual Rendering**:
+  - Semi-transparent circles with type-specific colors
+  - Weather symbols (☁ for clouds, ⚡ for storms, 〰 for turbulence)
+  - Rendered behind aircraft layer for proper depth ordering
+
+### WebGL CRT Shader Effects
+- **Dual-Canvas Rendering Architecture**:
+  - Offscreen Canvas 2D for primary radar rendering
+  - WebGL canvas for post-processing shader effects
+  - 60 FPS rendering pipeline maintained
+
+- **Shader Implementation** (`ShaderRenderer.ts`):
+  - Custom WebGL fragment shader with 5 configurable effects:
+    1. Scanlines - Horizontal CRT lines
+    2. Barrel Distortion - Curved screen edges (CRT curvature)
+    3. Chromatic Aberration - RGB color separation
+    4. Phosphor Glow - Bloom effect on bright elements
+    5. Vignette - Edge darkening
+  - Vertex shader for full-screen quad rendering
+  - Uniform parameters for real-time effect adjustment
+
+- **Texture Optimization**:
+  - NEAREST texture filtering for crisp text rendering
+  - Proper WebGL/Canvas 2D coordinate system handling
+  - Vertical texture flip to correct orientation
+
+- **Final Configuration**:
+  - All shader effects set to 0.0 for maximum text legibility
+  - Maintains WebGL pipeline infrastructure for future re-enablement
+  - Pixel-perfect text rendering prioritized over visual effects
+
+### Bug Fixes & Optimizations
+
+#### Issue 1: Text Illegibility with Shader Effects
+- **Problem**: Initial shader effect intensities made text blurry and hard to read
+- **Root Cause**: Aggressive scanlines, glow, and chromatic aberration interfering with text
+- **Fix**: Progressively reduced effect intensities, then disabled entirely
+- **Result**: Crystal clear callsigns, flight levels, and waypoint labels
+
+#### Issue 2: Upside-Down Text in WebGL Rendering
+- **Problem**: All text appearing inverted vertically
+- **Root Cause**: Canvas 2D (Y=0 at top) vs WebGL (Y=0 at bottom) coordinate mismatch
+- **Fix**: Flipped texture coordinates in vertex shader quad
+- **Location**: `ShaderRenderer.ts:75-80`
+
+#### Issue 3: Text Blurriness from LINEAR Filtering
+- **Problem**: WebGL LINEAR filtering causing text to appear fuzzy
+- **Root Cause**: Texture interpolation between pixels
+- **Fix**: Changed to NEAREST filtering for sharp, pixel-perfect text
+- **Location**: `ShaderRenderer.ts:102-103`
+
+### File Changes
+**New Files**:
+- `packages/shared/src/types/weather.ts` (15 lines) - Weather type definitions
+- `packages/server/src/game/WeatherSystem.ts` (160 lines) - Weather generation and management
+- `packages/client/src/shaders/crt.vert` (10 lines) - WebGL vertex shader
+- `packages/client/src/shaders/crt.frag` (90 lines) - WebGL fragment shader with CRT effects
+- `packages/client/src/utils/ShaderRenderer.ts` (190 lines) - WebGL renderer class
+
+**Modified Files**:
+- `packages/shared/src/types/gameState.ts`: Added `weather: WeatherCell[]` to Airspace, weather deltas to StateDelta
+- `packages/shared/src/index.ts`: Exported weather types
+- `packages/server/src/game/GameRoom.ts`: Added 13 waypoints, integrated WeatherSystem, weather updates in game loop
+- `packages/client/src/components/RadarDisplay/RadarDisplay.tsx`: Dual-canvas architecture, waypoint rendering, weather rendering, WebGL integration
+- `packages/client/src/components/RadarDisplay/RadarDisplay.module.css`: WebGL canvas styling
+- `packages/client/src/App.tsx`: Pass waypoints and weather to RadarDisplay
+
+### Performance & Statistics
+- **Frame Rate**: Solid 60 FPS with all features enabled
+- **Lines of Code Added**: ~1,200 lines total
+- **Weather Cells**: Up to 10 active simultaneously
+- **Waypoints**: 13 visible at all times
+- **Text Clarity**: Pixel-perfect rendering with NEAREST filtering
+
+### UI Enhancements
+- Collapsible Chaos Controls panel with header click functionality
+- Collapsible Control Panel with collapse button
+- Display current and target values for aircraft (altitude, heading, speed)
+- Smooth CSS transitions and hover effects
+
+### Shader Settings Evolution
+**Initial Settings** (maximum visual effects):
+- Scanlines: 0.15, Barrel: 0.08, Chromatic: 0.0008, Glow: 0.3, Vignette: 0.6
+
+**Intermediate Settings** (balanced):
+- Scanlines: 0.08, Barrel: 0.04, Chromatic: 0.0003, Glow: 0.2, Vignette: 0.4
+
+**Final Settings** (maximum clarity):
+- All effects: 0.0 (disabled for pixel-perfect text)
+
 ## Pending Features (Next Session)
 
 ### Phase 3: Core Gameplay ✅ COMPLETED

@@ -122,7 +122,7 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
             <div className={styles.sectionTitle}>QUICK COMMANDS</div>
             <div className={styles.buttonGrid}>
               <button onClick={handleTurnLeft}>⬅ LEFT 10°</button>
-              <button onClick={handleTurnRight}>➡ RIGHT 10°</button>
+              <button onClick={handleTurnRight}>⮕ RIGHT 10°</button>
               <button onClick={handleClimb}>⬆ CLIMB 1000ft</button>
               <button onClick={handleDescend}>⬇ DESCEND 1000ft</button>
             </div>
