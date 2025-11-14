@@ -75,6 +75,6 @@ export const CHAOS_ABILITIES = {
   callsign_shuffle: {
     name: "Callsign Shuffle",
     description: "Swap all aircraft callsigns randomly",
-    cooldownDuration: 90000, // 90 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
 } as const;

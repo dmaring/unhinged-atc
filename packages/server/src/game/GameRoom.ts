@@ -141,6 +141,7 @@ export class GameRoom {
       // Real radars update all targets on every sweep, not just changed ones
       delta.aircraftUpdates!.push({
         id: aircraft.id,
+        callsign: aircraft.callsign,
         position: aircraft.position,
         altitude: aircraft.altitude,
         heading: aircraft.heading,
