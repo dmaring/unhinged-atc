@@ -45,3 +45,36 @@ export const RADAR_CONFIG = {
   TRAIL_OPACITY: 0.3,
   AIRCRAFT_SIZE: 8, // pixels
 } as const;
+
+export const CHAOS_ABILITIES = {
+  reverse_course: {
+    name: "Reverse Course",
+    description: "Flip all aircraft headings 180°",
+    cooldownDuration: 30000, // 30 seconds
+  },
+  altitude_roulette: {
+    name: "Altitude Roulette",
+    description: "Randomize all aircraft altitudes ±5000ft",
+    cooldownDuration: 45000, // 45 seconds
+  },
+  speed_lottery: {
+    name: "Speed Lottery",
+    description: "Random speed changes to all aircraft",
+    cooldownDuration: 30000, // 30 seconds
+  },
+  gravity_well: {
+    name: "Gravity Well",
+    description: "Pull all aircraft toward center",
+    cooldownDuration: 60000, // 60 seconds
+  },
+  scatter_blast: {
+    name: "Scatter Blast",
+    description: "Push all aircraft away from center",
+    cooldownDuration: 60000, // 60 seconds
+  },
+  callsign_shuffle: {
+    name: "Callsign Shuffle",
+    description: "Swap all aircraft callsigns randomly",
+    cooldownDuration: 90000, // 90 seconds
+  },
+} as const;

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Socket } from 'socket.io-client';
-import { GameState, StateDelta, GameEvent, Controller, ChaosType } from 'shared';
+import { GameState, StateDelta, GameEvent, Controller } from 'shared';
 import { useGameStore } from '../stores/gameStore';
 
 export function useGameSync(socket: Socket | null, isConnected: boolean) {
@@ -11,8 +11,6 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
   const addEvent = useGameStore((state) => state.addEvent);
   const updateController = useGameStore((state) => state.updateController);
   const removeController = useGameStore((state) => state.removeController);
-  const updateTimeScale = useGameStore((state) => state.updateTimeScale);
-  const updateChaosAbilities = useGameStore((state) => state.updateChaosAbilities);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -90,25 +88,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     const onTimeScaleUpdated = (data: { timeScale: number }) => {
       console.log(`[GameSync] Time scale updated: ${data.timeScale}x`);
       // Update the game state with new time scale
-      updateTimeScale(data.timeScale);
-    };
-
-    // Handle chaos activated
-    const onChaosActivated = (data: { chaosType: string; controllerId: string; message: string; timestamp: number }) => {
-      console.log(`[GameSync] Chaos activated: ${data.message}`);
-      // The event will be added through the normal event system
-    };
-
-    // Handle chaos state updates
-    const onChaosStateUpdated = (data: { chaosAbilities: Record<string, { lastUsed: number; usageCount: number }> }) => {
-      console.log('[GameSync] Chaos abilities updated');
-      updateChaosAbilities(data.chaosAbilities);
-    };
-
-    // Handle chaos failed
-    const onChaosFailed = (data: { chaosType: string; message: string }) => {
-      console.warn(`[GameSync] Chaos failed: ${data.message}`);
-      // Could show a toast notification here
+      setGameState((state) => state ? { ...state, timeScale: data.timeScale } : null);
     };
 
     // Register event listeners
@@ -118,9 +98,6 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     socket.on('controller_update', onControllerUpdate);
     socket.on('command_issued', onCommandIssued);
     socket.on('time_scale_updated', onTimeScaleUpdated);
-    socket.on('chaos_activated', onChaosActivated);
-    socket.on('chaos_state_updated', onChaosStateUpdated);
-    socket.on('chaos_failed', onChaosFailed);
 
     // Cleanup
     return () => {
@@ -130,9 +107,6 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       socket.off('controller_update', onControllerUpdate);
       socket.off('command_issued', onCommandIssued);
       socket.off('time_scale_updated', onTimeScaleUpdated);
-      socket.off('chaos_activated', onChaosActivated);
-      socket.off('chaos_state_updated', onChaosStateUpdated);
-      socket.off('chaos_failed', onChaosFailed);
     };
   }, [
     socket,
@@ -144,8 +118,6 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     addEvent,
     updateController,
     removeController,
-    updateTimeScale,
-    updateChaosAbilities,
   ]);
 
   /**
@@ -176,17 +148,5 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     socket.emit('set_time_scale', { scale });
   };
 
-  /**
-   * Send chaos command
-   */
-  const sendChaosCommand = (chaosType: ChaosType) => {
-    if (!socket || !isConnected) {
-      console.warn('[GameSync] Cannot send chaos command: not connected');
-      return;
-    }
-
-    socket.emit('chaos_command', { type: chaosType });
-  };
-
-  return { sendCommand, setTimeScale, sendChaosCommand };
+  return { sendCommand, setTimeScale };
 }

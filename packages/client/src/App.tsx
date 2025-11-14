@@ -6,11 +6,12 @@ import { useGameStore } from './stores/gameStore'
 import { RadarDisplay } from './components/RadarDisplay'
 import { ControlPanel } from './components/ControlPanel'
 import { SpeedControl } from './components/SpeedControl'
+import { ChaosPanel } from './components/ChaosPanel'
 
 function App() {
   const [isLoading, setIsLoading] = useState(true)
   const { socket, isConnected, connectionError } = useWebSocket()
-  const { sendCommand, setTimeScale } = useGameSync(socket, isConnected)
+  const { sendCommand, setTimeScale, sendChaosCommand } = useGameSync(socket, isConnected)
 
   const gameState = useGameStore((state) => state.gameState)
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
@@ -23,6 +24,7 @@ function App() {
   const airports = gameState?.airspace?.airports || []
   const events = gameState?.recentEvents || []
   const currentSpeed = gameState?.timeScale || 10
+  const chaosAbilities = gameState?.chaosAbilities || {}
 
   // Get selected aircraft object
   const selectedAircraft = selectedAircraftId && gameState
@@ -73,6 +75,10 @@ function App() {
           <SpeedControl
             currentSpeed={currentSpeed}
             onSpeedChange={setTimeScale}
+          />
+          <ChaosPanel
+            chaosAbilities={chaosAbilities}
+            onChaosCommand={sendChaosCommand}
           />
           <ControlPanel
             selectedAircraft={selectedAircraft}

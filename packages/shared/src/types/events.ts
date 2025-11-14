@@ -8,7 +8,8 @@ export type EventType =
   | "conflict_detected"
   | "pilot_complaint"
   | "achievement"
-  | "command_conflict";
+  | "command_conflict"
+  | "chaos_activated";
 
 export type EventSeverity = "info" | "warning" | "critical" | "funny";
 

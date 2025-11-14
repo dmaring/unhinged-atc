@@ -1,0 +1,144 @@
+:root {
+  --primary-green: #00FF00;
+  --dark-green: #003300;
+  --bright-green: #00FF88;
+  --warning-amber: #FFAA00;
+  --danger-red: #FF0000;
+  --info-cyan: #00FFFF;
+  --text-white: #FFFFFF;
+  --background-black: #000000;
+}
+
+.app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-black);
+  color: var(--primary-green);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+.game-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.radar-section {
+  flex: 1;
+  position: relative;
+  background-color: var(--background-black);
+  border: 2px solid var(--primary-green);
+  margin: 10px;
+}
+
+.control-section {
+  width: 400px;
+  background-color: var(--background-black);
+  border: 2px solid var(--primary-green);
+  margin: 10px 10px 10px 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 10px;
+  border-bottom: 2px solid var(--primary-green);
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px var(--primary-green);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 20px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    transparent 50%,
+    rgba(0, 255, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Button styles */
+button {
+  background-color: transparent;
+  border: 1px solid var(--primary-green);
+  color: var(--primary-green);
+  padding: 8px 16px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+button:hover {
+  background-color: var(--primary-green);
+  color: var(--background-black);
+  box-shadow: 0 0 10px var(--primary-green);
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input styles */
+input {
+  background-color: var(--background-black);
+  border: 1px solid var(--primary-green);
+  color: var(--primary-green);
+  padding: 8px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+input:focus {
+  outline: none;
+  box-shadow: 0 0 5px var(--primary-green);
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-green);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bright-green);
+}

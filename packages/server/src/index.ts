@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { randomBytes } from 'crypto';
 import { GameEngine } from './game/GameEngine.js';
-import { AircraftCommand } from 'shared';
+import { AircraftCommand, ChaosCommand } from 'shared';
 
 // Load environment variables
 dotenv.config();
@@ -149,6 +149,52 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('time_scale_updated', {
       timeScale: room.getTimeScale(),
     });
+  });
+
+  // Handle chaos command
+  socket.on('chaos_command', (command: Omit<ChaosCommand, 'id' | 'timestamp'>) => {
+    if (!currentRoom) {
+      socket.emit('error', { code: 'NO_ROOM', message: 'Not in a room' });
+      return;
+    }
+
+    const room = gameEngine.getRoom(currentRoom);
+    if (!room) {
+      socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+      return;
+    }
+
+    // Create full chaos command
+    const fullCommand: ChaosCommand = {
+      ...command,
+      id: randomBytes(8).toString('hex'),
+      timestamp: Date.now(),
+      controllerId: socket.id,
+    };
+
+    // Process chaos command
+    const result = room.processChaosCommand(fullCommand);
+
+    if (result.success) {
+      // Broadcast chaos activation to all clients
+      io.to(currentRoom).emit('chaos_activated', {
+        chaosType: command.type,
+        controllerId: socket.id,
+        message: result.message,
+        timestamp: Date.now(),
+      });
+
+      // Update chaos abilities state
+      io.to(currentRoom).emit('chaos_state_updated', {
+        chaosAbilities: room.getGameState().chaosAbilities,
+      });
+    } else {
+      // Send error back to requesting client
+      socket.emit('chaos_failed', {
+        chaosType: command.type,
+        message: result.message,
+      });
+    }
   });
 
   // Handle disconnect

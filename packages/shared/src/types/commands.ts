@@ -27,3 +27,28 @@ export interface AircraftCommand {
   type: CommandType;
   params: CommandParams;
 }
+
+// Chaos command types
+export type ChaosType =
+  | "reverse_course"
+  | "altitude_roulette"
+  | "speed_lottery"
+  | "gravity_well"
+  | "scatter_blast"
+  | "callsign_shuffle";
+
+export interface ChaosCommand {
+  id: string;
+  type: ChaosType;
+  controllerId: string;
+  timestamp: number;
+}
+
+export interface ChaosAbility {
+  id: ChaosType;
+  name: string;
+  description: string;
+  cooldownDuration: number; // milliseconds
+  lastUsed: number; // timestamp
+  usageCount: number;
+}

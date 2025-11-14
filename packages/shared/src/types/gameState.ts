@@ -72,6 +72,9 @@ export interface GameState {
   gameTime: number; // Seconds since start
   isPaused: boolean;
   timeScale: number; // Speed multiplier (1x-30x)
+
+  // Chaos system
+  chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>;
 }
 
 export interface StateDelta {

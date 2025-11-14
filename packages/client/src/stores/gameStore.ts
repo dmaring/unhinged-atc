@@ -16,6 +16,7 @@ interface GameStore {
   updateController: (controller: Controller) => void;
   removeController: (id: string) => void;
   updateTimeScale: (timeScale: number) => void;
+  updateChaosAbilities: (chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>) => void;
   reset: () => void;
 }
 
@@ -128,6 +129,18 @@ export const useGameStore = create<GameStore>((set) => ({
         gameState: {
           ...store.gameState,
           timeScale,
+        },
+      };
+    }),
+
+  updateChaosAbilities: (chaosAbilities) =>
+    set((store) => {
+      if (!store.gameState) return store;
+
+      return {
+        gameState: {
+          ...store.gameState,
+          chaosAbilities,
         },
       };
     }),
