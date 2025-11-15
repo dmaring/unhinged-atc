@@ -13,6 +13,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
   const removeController = useGameStore((state) => state.removeController);
   const updateTimeScale = useGameStore((state) => state.updateTimeScale);
   const updateChaosAbilities = useGameStore((state) => state.updateChaosAbilities);
+  const updateScoreMetrics = useGameStore((state) => state.updateScoreMetrics);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -64,6 +65,15 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
           removeController(delta.controllerUpdate.controller.id);
         }
       }
+
+      // Update score metrics
+      updateScoreMetrics({
+        scoreUpdate: delta.scoreUpdate,
+        planesCleared: delta.planesCleared,
+        crashCount: delta.crashCount,
+        gameTime: delta.gameTime,
+        nextBonusAt: delta.nextBonusAt,
+      });
     };
 
     // Handle game events - REMOVED: events now only come via delta.newEvents
@@ -147,6 +157,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     removeController,
     updateTimeScale,
     updateChaosAbilities,
+    updateScoreMetrics,
   ]);
 
   /**
@@ -192,13 +203,13 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
   /**
    * Spawn a new aircraft
    */
-  const spawnAircraft = () => {
+  const spawnAircraft = (count: number = 1) => {
     if (!socket || !isConnected) {
       console.warn('[GameSync] Cannot spawn aircraft: not connected');
       return;
     }
 
-    socket.emit('spawn_aircraft');
+    socket.emit('spawn_aircraft', { count });
   };
 
   return { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft };

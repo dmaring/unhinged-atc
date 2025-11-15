@@ -66,6 +66,8 @@ export interface GameState {
   successfulLandings: number;
   nearMisses: number;
   collisions: number;
+  planesCleared: number; // Successfully exited or landed aircraft
+  crashCount: number; // Crash counter (increments by 2 per crash)
 
   // Events
   recentEvents: GameEvent[]; // Last 20 events
@@ -74,6 +76,9 @@ export interface GameState {
   gameTime: number; // Seconds since start
   isPaused: boolean;
   timeScale: number; // Speed multiplier (1x-30x)
+  gameStartTime: number; // Timestamp when game started
+  lastSpawnTime: number; // Last timed aircraft spawn (in gameTime seconds)
+  nextBonusAt: number; // Next crash-free bonus time (in gameTime seconds)
 
   // Chaos system
   chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>;
@@ -87,6 +92,10 @@ export interface StateDelta {
   weatherUpdates?: WeatherCell[];
   removedWeatherIds?: string[];
   scoreUpdate?: number;
+  planesCleared?: number;
+  crashCount?: number;
+  gameTime?: number;
+  nextBonusAt?: number;
   newEvents?: GameEvent[];
   controllerUpdate?: {
     type: "joined" | "left";

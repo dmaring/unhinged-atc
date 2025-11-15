@@ -76,13 +76,19 @@
   color: #00ff00;
 }
 
+.buttonGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .spawnButton {
   background: rgba(0, 255, 0, 0.1);
   border: 1px solid #00ff00;
   color: #00ff00;
   padding: 12px 16px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
@@ -108,5 +114,69 @@
   }
   50% {
     box-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+  }
+}
+
+/* Chaos button styling - AIRCRAFT APOCALYPSE */
+.chaosButton {
+  background: rgba(255, 102, 0, 0.15);
+  border: 2px solid #ff6600;
+  color: #ff6600;
+  font-size: 10px;
+  padding: 14px 16px;
+  animation: chaosPulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.chaosButton::before {
+  content: '⚠';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  animation: warningBlink 1s ease-in-out infinite;
+}
+
+.chaosButton::after {
+  content: '⚠';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  animation: warningBlink 1s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.chaosButton:hover {
+  background: rgba(255, 102, 0, 0.3);
+  box-shadow: 0 0 20px rgba(255, 102, 0, 0.8);
+  border-color: #ff8833;
+  color: #ff8833;
+  transform: translateY(-3px) scale(1.02);
+}
+
+.chaosButton:active {
+  transform: translateY(0) scale(1);
+  box-shadow: 0 0 10px rgba(255, 102, 0, 0.6);
+}
+
+@keyframes chaosPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 102, 0, 0.4), inset 0 0 8px rgba(255, 102, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 102, 0, 0.8), inset 0 0 15px rgba(255, 102, 0, 0.2);
+  }
+}
+
+@keyframes warningBlink {
+  0%, 49%, 100% {
+    opacity: 1;
+  }
+  50%, 99% {
+    opacity: 0.3;
   }
 }

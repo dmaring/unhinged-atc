@@ -11,6 +11,12 @@ interface RadarDisplayProps {
   events?: GameEvent[];
   selectedAircraftId?: string | null;
   onAircraftSelect?: (id: string) => void;
+  // Scoreboard data
+  score?: number;
+  planesCleared?: number;
+  crashCount?: number;
+  gameTime?: number;
+  nextBonusAt?: number;
 }
 
 export function RadarDisplay({
@@ -21,6 +27,11 @@ export function RadarDisplay({
   events = [],
   selectedAircraftId,
   onAircraftSelect,
+  score = 0,
+  planesCleared = 0,
+  crashCount = 0,
+  gameTime = 0,
+  nextBonusAt = 0,
 }: RadarDisplayProps) {
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -259,8 +270,37 @@ export function RadarDisplay({
         <div className={`${styles.compassLabel} ${styles.compassS}`}>S</div>
         <div className={`${styles.compassLabel} ${styles.compassW}`}>W</div>
       </div>
+
+      {/* Scoreboard */}
+      <div className={styles.scoreboard}>
+        <div className={styles.scoreboardTitle}>MISSION STATUS</div>
+        <div className={styles.scoreboardRow}>
+          <span>SCORE:</span>
+          <span className={styles.scoreValue}>{score}</span>
+        </div>
+        <div className={styles.scoreboardRow}>
+          <span>CLEARED:</span>
+          <span>{planesCleared}</span>
+        </div>
+        <div className={styles.scoreboardRow}>
+          <span>CRASHES:</span>
+          <span className={styles.crashValue}>{crashCount}</span>
+        </div>
+        <div className={styles.scoreboardRow}>
+          <span>NEXT BONUS:</span>
+          <span>{formatBonusTime(nextBonusAt - gameTime)}</span>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Helper function to format bonus countdown timer
+function formatBonusTime(seconds: number): string {
+  if (seconds <= 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Helper functions

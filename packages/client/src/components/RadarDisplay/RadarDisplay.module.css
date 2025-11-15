@@ -77,3 +77,47 @@
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* Scoreboard */
+.scoreboard {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #00FF00;
+  border-radius: 4px;
+  padding: 10px 15px;
+  color: #00FF00;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  text-shadow: 0 0 5px #00FF00;
+  pointer-events: none;
+  min-width: 180px;
+}
+
+.scoreboardTitle {
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-align: center;
+  border-bottom: 1px solid #00FF00;
+  padding-bottom: 5px;
+}
+
+.scoreboardRow {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+  letter-spacing: 0.5px;
+}
+
+.scoreValue {
+  color: #00FFFF;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.crashValue {
+  color: #FF6600;
+  font-weight: bold;
+}

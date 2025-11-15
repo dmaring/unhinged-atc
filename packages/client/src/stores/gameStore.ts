@@ -17,6 +17,7 @@ interface GameStore {
   removeController: (id: string) => void;
   updateTimeScale: (timeScale: number) => void;
   updateChaosAbilities: (chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>) => void;
+  updateScoreMetrics: (metrics: { scoreUpdate?: number; planesCleared?: number; crashCount?: number; gameTime?: number; nextBonusAt?: number }) => void;
   reset: () => void;
 }
 
@@ -148,6 +149,22 @@ export const useGameStore = create<GameStore>((set) => ({
         gameState: {
           ...store.gameState,
           chaosAbilities,
+        },
+      };
+    }),
+
+  updateScoreMetrics: (metrics) =>
+    set((store) => {
+      if (!store.gameState) return store;
+
+      return {
+        gameState: {
+          ...store.gameState,
+          ...(metrics.scoreUpdate !== undefined && { score: metrics.scoreUpdate }),
+          ...(metrics.planesCleared !== undefined && { planesCleared: metrics.planesCleared }),
+          ...(metrics.crashCount !== undefined && { crashCount: metrics.crashCount }),
+          ...(metrics.gameTime !== undefined && { gameTime: metrics.gameTime }),
+          ...(metrics.nextBonusAt !== undefined && { nextBonusAt: metrics.nextBonusAt }),
         },
       };
     }),

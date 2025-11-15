@@ -84,6 +84,11 @@ function App() {
             events={events}
             selectedAircraftId={selectedAircraftId}
             onAircraftSelect={(id) => setSelectedAircraft(id || null)}
+            score={gameState?.score}
+            planesCleared={gameState?.planesCleared}
+            crashCount={gameState?.crashCount}
+            gameTime={gameState?.gameTime}
+            nextBonusAt={gameState?.nextBonusAt}
           />
         </div>
         <div className="control-section">

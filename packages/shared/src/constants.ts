@@ -23,13 +23,16 @@ export const POINTS = {
   onTimeLanding: 50, // Within 2 min of ETA
   fuelEfficient: 25, // Land with >30% fuel
   nearMissAvoided: 50, // Resolved predicted conflict
+  planeCleared: 100, // Successfully exited airspace or landed
+  crashFreeBonus: 500, // 3 minutes without a crash
 
   // Penalties
   nearMiss: -100,
-  collision: -500,
+  crash: -100, // Per crash (collision penalty)
+  collision: -500, // Legacy - now using crash
   fuelEmergency: -75,
   goAround: -50, // Failed landing attempt
-  outOfBounds: -200, // Aircraft left airspace
+  outOfBounds: -200, // Aircraft left airspace (now converted to reward)
 } as const;
 
 export const GAME_CONFIG = {
@@ -38,9 +41,12 @@ export const GAME_CONFIG = {
   MAX_RECENT_EVENTS: 20, // Number of events to keep in history
   MAX_CONTROLLERS_PER_ROOM: 4,
   MAX_COMMANDS_PER_MINUTE: 60,
-  AIRCRAFT_SPAWN_INTERVAL: 30000, // ms
+  AIRCRAFT_SPAWN_INTERVAL: 30000, // ms (legacy - now using TIMED_SPAWN_INTERVAL)
+  TIMED_SPAWN_INTERVAL: 60, // seconds - spawn 1 plane per player every 60s
+  CRASH_FREE_BONUS_INTERVAL: 180, // seconds - bonus every 3 minutes without crash
   SCENARIO_INTERVAL_MIN: 120000, // 2 minutes
   SCENARIO_INTERVAL_MAX: 300000, // 5 minutes
+  INITIAL_AIRCRAFT_COUNT: 3, // Number of aircraft at game start
 } as const;
 
 export const RADAR_CONFIG = {

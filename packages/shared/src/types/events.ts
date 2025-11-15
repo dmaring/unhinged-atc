@@ -10,7 +10,10 @@ export type EventType =
   | "pilot_complaint"
   | "achievement"
   | "command_conflict"
-  | "chaos_activated";
+  | "chaos_activated"
+  | "timed_spawn"
+  | "crash_free_bonus"
+  | "plane_cleared";
 
 export type EventSeverity = "info" | "warning" | "critical" | "funny";
 

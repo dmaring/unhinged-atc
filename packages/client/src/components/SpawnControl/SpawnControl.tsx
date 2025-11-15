@@ -2,7 +2,7 @@ import { useState } from 'react';
 import styles from './SpawnControl.module.css';
 
 interface SpawnControlProps {
-  onSpawnAircraft: () => void;
+  onSpawnAircraft: (count: number) => void;
 }
 
 export function SpawnControl({ onSpawnAircraft }: SpawnControlProps) {
@@ -20,11 +20,28 @@ export function SpawnControl({ onSpawnAircraft }: SpawnControlProps) {
       {!isCollapsed && (
         <div className={styles.content}>
           <div className={styles.description}>
-            Manually spawn a new aircraft at a random airspace entry point
+            Manually spawn aircraft at random airspace entry points
           </div>
-          <button className={styles.spawnButton} onClick={onSpawnAircraft}>
-            ✈ SPAWN AIRCRAFT
-          </button>
+          <div className={styles.buttonGrid}>
+            <button
+              className={styles.spawnButton}
+              onClick={() => onSpawnAircraft(1)}
+            >
+              ✈ SPAWN 1
+            </button>
+            <button
+              className={styles.spawnButton}
+              onClick={() => onSpawnAircraft(3)}
+            >
+              ✈✈✈ SPAWN 3
+            </button>
+            <button
+              className={`${styles.spawnButton} ${styles.chaosButton}`}
+              onClick={() => onSpawnAircraft(20)}
+            >
+              🌪️ AIRCRAFT APOCALYPSE
+            </button>
+          </div>
         </div>
       )}
     </div>

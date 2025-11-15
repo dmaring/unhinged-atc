@@ -198,7 +198,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle spawn aircraft request
-  socket.on('spawn_aircraft', () => {
+  socket.on('spawn_aircraft', (data?: { count?: number }) => {
     if (!currentRoom) {
       socket.emit('error', { code: 'NO_ROOM', message: 'Not in a room' });
       return;
@@ -210,9 +210,15 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Spawn a new random aircraft
-    room.spawnRandomAircraft();
-    console.log(`[GameRoom ${currentRoom}] Aircraft manually spawned by ${socket.id}`);
+    // Get count from data, default to 1, cap at 50 to prevent abuse
+    const count = Math.min(Math.max(1, data?.count || 1), 50);
+
+    // Spawn N aircraft
+    for (let i = 0; i < count; i++) {
+      room.spawnRandomAircraft();
+    }
+
+    console.log(`[GameRoom ${currentRoom}] ${count} aircraft manually spawned by ${socket.id}`);
   });
 
   // Handle disconnect

@@ -9,6 +9,7 @@ import {
   AircraftType,
   Conflict,
   POINTS,
+  GAME_CONFIG,
   ChaosCommand,
   ChaosType,
   CHAOS_ABILITIES,
@@ -119,10 +120,15 @@ export class GameRoom {
       successfulLandings: 0,
       nearMisses: 0,
       collisions: 0,
+      planesCleared: 0,
+      crashCount: 0,
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
       timeScale: 10, // Default 10x speed
+      gameStartTime: Date.now(),
+      lastSpawnTime: 0,
+      nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
       chaosAbilities: {},
     };
 
@@ -154,15 +160,48 @@ export class GameRoom {
     // Update game time
     this.gameState.gameTime += deltaTime;
 
-    // Spawn new aircraft if needed (maintain 3-5 aircraft)
-    const aircraftCount = Object.keys(this.gameState.aircraft).length;
-    const timeSinceLastSpawn = this.gameState.gameTime - this.lastSpawnTime;
+    // Timed aircraft spawning: every 60 seconds, spawn 1 plane per controller
+    if (this.gameState.gameTime >= this.gameState.lastSpawnTime + GAME_CONFIG.TIMED_SPAWN_INTERVAL) {
+      const controllerCount = Math.max(1, Object.keys(this.gameState.controllers).length);
+      const newAircraft: Aircraft[] = [];
 
-    if (aircraftCount < 3 || (aircraftCount < 5 && timeSinceLastSpawn > 30)) {
-      this.spawnRandomAircraft();
-      this.lastSpawnTime = this.gameState.gameTime;
+      for (let i = 0; i < controllerCount; i++) {
+        this.spawnRandomAircraft();
+        const latestAircraftId = `aircraft-${this.aircraftCounter}`;
+        newAircraft.push(this.gameState.aircraft[latestAircraftId]);
+      }
 
-      delta.newAircraft = [this.gameState.aircraft[`aircraft-${this.aircraftCounter}`]];
+      this.gameState.lastSpawnTime = this.gameState.gameTime;
+      delta.newAircraft = newAircraft;
+
+      // Announce timed spawn
+      const message = controllerCount === 1
+        ? `📡 New aircraft entering the chaos!`
+        : `📡 ${controllerCount} new aircraft entering the chaos!`;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'timed_spawn',
+        timestamp: Date.now(),
+        aircraftIds: newAircraft.map(a => a.id),
+        message,
+        severity: 'info',
+      });
+    }
+
+    // Check for crash-free bonus (every 3 minutes without a crash)
+    if (this.gameState.gameTime >= this.gameState.nextBonusAt) {
+      this.gameState.score += POINTS.crashFreeBonus;
+      this.gameState.nextBonusAt = this.gameState.gameTime + GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL;
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'crash_free_bonus',
+        timestamp: Date.now(),
+        aircraftIds: [],
+        message: `🎉 CRASH-FREE BONUS: +${POINTS.crashFreeBonus} points! No crashes for 3 minutes!`,
+        severity: 'info',
+      });
     }
 
     // Track aircraft that exit the airspace
@@ -330,6 +369,13 @@ export class GameRoom {
 
     // Store current weather for next delta
     this.previousWeatherCells = [...updatedWeather];
+
+    // Add score-related updates to delta
+    delta.scoreUpdate = this.gameState.score;
+    delta.planesCleared = this.gameState.planesCleared;
+    delta.crashCount = this.gameState.crashCount;
+    delta.gameTime = this.gameState.gameTime;
+    delta.nextBonusAt = this.gameState.nextBonusAt;
 
     return delta;
   }
@@ -662,24 +708,29 @@ export class GameRoom {
   private handleAircraftOutOfBounds(aircraft: Aircraft): void {
     console.log(`[GameRoom ${this.gameState.roomId}] Aircraft ${aircraft.callsign} left airspace`);
 
-    // Use humorous exit message
-    const messageTemplate = pickRandom(AIRCRAFT_EXIT_MESSAGES);
-    const message = messageTemplate(aircraft.callsign);
+    // Reward for successfully clearing airspace (unless crashed)
+    if (!aircraft.crashed) {
+      this.gameState.score += POINTS.planeCleared; // +100 points
+      this.gameState.planesCleared += 1;
 
-    this.addEvent({
-      id: randomBytes(8).toString('hex'),
-      type: 'achievement',
-      timestamp: Date.now(),
-      aircraftIds: [aircraft.id],
-      message,
-      severity: 'info',
-    });
+      // Use humorous exit message
+      const messageTemplate = pickRandom(AIRCRAFT_EXIT_MESSAGES);
+      const message = messageTemplate(aircraft.callsign);
+
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'plane_cleared',
+        timestamp: Date.now(),
+        aircraftIds: [aircraft.id],
+        message,
+        severity: 'info',
+      });
+
+      console.log(`[GameRoom ${this.gameState.roomId}] ${aircraft.callsign} cleared (+${POINTS.planeCleared} points)`);
+    }
 
     // Remove aircraft
     delete this.gameState.aircraft[aircraft.id];
-
-    // Penalty
-    this.gameState.score += POINTS.outOfBounds;
   }
 
   /**
@@ -699,6 +750,7 @@ export class GameRoom {
       const landingScore = this.landingSystem.calculateLandingScore(aircraft, attempt);
       this.gameState.score += landingScore;
       this.gameState.successfulLandings++;
+      this.gameState.planesCleared++; // Increment cleared planes counter
 
       // Remove from fuel warnings/emergencies
       this.fuelWarnings.delete(aircraft.id);
@@ -887,6 +939,13 @@ export class GameRoom {
 
     const callsigns = `${aircraft1.callsign} and ${aircraft2.callsign}`;
 
+    // Update scoring
+    this.gameState.score += POINTS.crash; // -100 points
+    this.gameState.crashCount += 2; // Increment by 2 per crash
+
+    // Reset crash-free bonus timer
+    this.gameState.nextBonusAt = this.gameState.gameTime + GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL;
+
     // Use humorous crash message
     const messageTemplate = pickRandom(CRASH_MESSAGES);
     const message = messageTemplate(aircraft1.callsign, aircraft2.callsign);
@@ -900,7 +959,7 @@ export class GameRoom {
       severity: 'critical',
     });
 
-    console.log(`[GameRoom ${this.gameState.roomId}] CRASH: ${callsigns}`);
+    console.log(`[GameRoom ${this.gameState.roomId}] CRASH: ${callsigns} (Score: ${POINTS.crash}, Crash Count: +2)`);
   }
 
   /**
