@@ -9,6 +9,7 @@ import { ControlPanel } from './components/ControlPanel'
 import { SpeedControl } from './components/SpeedControl'
 import { SpawnControl } from './components/SpawnControl'
 import { ChaosPanel } from './components/ChaosPanel'
+import { NotificationPanel } from './components/NotificationPanel'
 
 function App() {
   const [isLoading, setIsLoading] = useState(true)
@@ -101,6 +102,7 @@ function App() {
             selectedAircraft={selectedAircraft}
             onCommand={sendCommand}
           />
+          <NotificationPanel />
         </div>
       </div>
       <div className="scanline"></div>

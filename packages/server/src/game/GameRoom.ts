@@ -21,6 +21,19 @@ import { LandingSystem } from './LandingSystem.js';
 import { ChaosProcessor } from './ChaosProcessor.js';
 import { WeatherSystem } from './WeatherSystem.js';
 import { randomBytes } from 'crypto';
+import {
+  pickRandom,
+  CRASH_MESSAGES,
+  NEAR_MISS_MESSAGES,
+  CONFLICT_MESSAGES,
+  AIRCRAFT_EXIT_MESSAGES,
+  AIRCRAFT_SPAWN_MESSAGES,
+  FUEL_WARNING_MESSAGES,
+  FUEL_EMERGENCY_MESSAGES,
+  CHAOS_ACTIVATION_MESSAGES,
+  LANDING_SUCCESS_MESSAGES,
+  LANDING_FAILURE_MESSAGES,
+} from './MessageTemplates.js';
 
 export class GameRoom {
   private gameState: GameState;
@@ -322,16 +335,16 @@ export class GameRoom {
 
     this.gameState.controllers[socketId] = controller;
 
-    // Add event
-    this.addEvent({
-      id: randomBytes(8).toString('hex'),
-      type: 'achievement',
-      timestamp: Date.now(),
-      aircraftIds: [],
-      controllerId: socketId,
-      message: `${username} joined the tower`,
-      severity: 'info',
-    });
+    // Add event - DISABLED until real multiplayer
+    // this.addEvent({
+    //   id: randomBytes(8).toString('hex'),
+    //   type: 'achievement',
+    //   timestamp: Date.now(),
+    //   aircraftIds: [],
+    //   controllerId: socketId,
+    //   message: `${username} joined the tower`,
+    //   severity: 'info',
+    // });
 
     console.log(`[GameRoom ${this.gameState.roomId}] Controller joined: ${username} (${socketId})`);
 
@@ -347,15 +360,16 @@ export class GameRoom {
 
     delete this.gameState.controllers[socketId];
 
-    this.addEvent({
-      id: randomBytes(8).toString('hex'),
-      type: 'achievement',
-      timestamp: Date.now(),
-      aircraftIds: [],
-      controllerId: socketId,
-      message: `${controller.username} left the tower`,
-      severity: 'info',
-    });
+    // Add event - DISABLED until real multiplayer
+    // this.addEvent({
+    //   id: randomBytes(8).toString('hex'),
+    //   type: 'achievement',
+    //   timestamp: Date.now(),
+    //   aircraftIds: [],
+    //   controllerId: socketId,
+    //   message: `${controller.username} left the tower`,
+    //   severity: 'info',
+    // });
 
     console.log(`[GameRoom ${this.gameState.roomId}] Controller left: ${controller.username}`);
   }
@@ -408,11 +422,15 @@ export class GameRoom {
     }
 
     // Apply chaos effect
-    const resultMessage = this.chaosProcessor.applyChaos(this.gameState.aircraft, chaosType);
+    this.chaosProcessor.applyChaos(this.gameState.aircraft, chaosType);
 
     // Update chaos state
     chaosState.lastUsed = now;
     chaosState.usageCount++;
+
+    // Use humorous chaos message
+    const messages = CHAOS_ACTIVATION_MESSAGES[chaosType] || [`${chaosConfig.name} activated!`];
+    const message = pickRandom(messages);
 
     // Add event
     this.addEvent({
@@ -421,13 +439,13 @@ export class GameRoom {
       timestamp: now,
       aircraftIds: Object.keys(this.gameState.aircraft),
       controllerId: command.controllerId,
-      message: resultMessage,
+      message,
       severity: 'funny',
     });
 
     console.log(`[GameRoom ${this.gameState.roomId}] CHAOS: ${chaosConfig.name} activated by ${command.controllerId}`);
 
-    return { success: true, message: resultMessage };
+    return { success: true, message };
   }
 
   /**
@@ -559,6 +577,19 @@ export class GameRoom {
 
     this.gameState.aircraft[aircraft.id] = aircraft;
     console.log(`[GameRoom ${this.gameState.roomId}] Aircraft spawned: ${aircraft.callsign}`);
+
+    // Add spawn notification with humor
+    const messageTemplate = pickRandom(AIRCRAFT_SPAWN_MESSAGES);
+    const message = messageTemplate(aircraft.callsign);
+
+    this.addEvent({
+      id: randomBytes(8).toString('hex'),
+      type: 'achievement',
+      timestamp: Date.now(),
+      aircraftIds: [aircraft.id],
+      message,
+      severity: 'info',
+    });
   }
 
   /**
@@ -618,13 +649,17 @@ export class GameRoom {
   private handleAircraftOutOfBounds(aircraft: Aircraft): void {
     console.log(`[GameRoom ${this.gameState.roomId}] Aircraft ${aircraft.callsign} left airspace`);
 
+    // Use humorous exit message
+    const messageTemplate = pickRandom(AIRCRAFT_EXIT_MESSAGES);
+    const message = messageTemplate(aircraft.callsign);
+
     this.addEvent({
       id: randomBytes(8).toString('hex'),
       type: 'achievement',
       timestamp: Date.now(),
       aircraftIds: [aircraft.id],
-      message: `${aircraft.callsign} left controlled airspace`,
-      severity: 'warning',
+      message,
+      severity: 'info',
     });
 
     // Remove aircraft
@@ -656,12 +691,16 @@ export class GameRoom {
       this.fuelWarnings.delete(aircraft.id);
       this.fuelEmergencies.delete(aircraft.id);
 
+      // Use humorous landing success message
+      const messageTemplate = pickRandom(LANDING_SUCCESS_MESSAGES);
+      const message = messageTemplate(aircraft.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'landing_success',
         timestamp: Date.now(),
         aircraftIds: [aircraft.id],
-        message: `${aircraft.callsign} landed successfully at ${attempt.airport} runway ${attempt.runway} (+${landingScore} points)`,
+        message,
         severity: 'info',
       });
 
@@ -677,12 +716,16 @@ export class GameRoom {
       // Failed landing - go around
       this.gameState.score += POINTS.goAround;
 
+      // Use humorous go-around message
+      const messageTemplate = pickRandom(LANDING_FAILURE_MESSAGES);
+      const message = messageTemplate(aircraft.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'pilot_complaint',
         timestamp: Date.now(),
         aircraftIds: [aircraft.id],
-        message: `${aircraft.callsign} go-around at ${attempt.airport}: ${attempt.reason}`,
+        message,
         severity: 'warning',
       });
 
@@ -707,12 +750,16 @@ export class GameRoom {
 
       this.gameState.score += POINTS.fuelEmergency;
 
+      // Use humorous fuel emergency message
+      const messageTemplate = pickRandom(FUEL_EMERGENCY_MESSAGES);
+      const message = messageTemplate(aircraft.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'emergency',
         timestamp: Date.now(),
         aircraftIds: [aircraft.id],
-        message: `FUEL EMERGENCY: ${aircraft.callsign} - ${fuelPercent.toFixed(1)}% fuel remaining!`,
+        message,
         severity: 'critical',
       });
 
@@ -722,12 +769,16 @@ export class GameRoom {
     else if (fuelPercent < 30 && !this.fuelWarnings.has(aircraft.id)) {
       this.fuelWarnings.add(aircraft.id);
 
+      // Use humorous fuel warning message
+      const messageTemplate = pickRandom(FUEL_WARNING_MESSAGES);
+      const message = messageTemplate(aircraft.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'emergency',
         timestamp: Date.now(),
         aircraftIds: [aircraft.id],
-        message: `Low fuel: ${aircraft.callsign} - ${fuelPercent.toFixed(1)}% remaining`,
+        message,
         severity: 'warning',
       });
 
@@ -762,12 +813,16 @@ export class GameRoom {
       this.gameState.collisions++;
       this.gameState.score += POINTS.collision;
 
+      // Use humorous crash message (collision is effectively a crash)
+      const messageTemplate = pickRandom(CRASH_MESSAGES);
+      const message = messageTemplate(aircraft1.callsign, aircraft2.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'collision',
         timestamp: Date.now(),
         aircraftIds: [conflict.aircraft1, conflict.aircraft2],
-        message: `COLLISION! ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft separation`,
+        message,
         severity: 'critical',
       });
 
@@ -777,24 +832,31 @@ export class GameRoom {
       this.gameState.nearMisses++;
       this.gameState.score += POINTS.nearMiss;
 
+      // Use humorous near miss message
+      const messageTemplate = pickRandom(NEAR_MISS_MESSAGES);
+      const message = messageTemplate(aircraft1.callsign, aircraft2.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'near_miss',
         timestamp: Date.now(),
         aircraftIds: [conflict.aircraft1, conflict.aircraft2],
-        message: `NEAR MISS: ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft`,
+        message,
         severity: 'critical',
       });
 
       console.log(`[GameRoom ${this.gameState.roomId}] NEAR MISS: ${callsigns}`);
     } else {
       // Conflict warning
+      const messageTemplate = pickRandom(CONFLICT_MESSAGES);
+      const message = messageTemplate(aircraft1.callsign, aircraft2.callsign);
+
       this.addEvent({
         id: randomBytes(8).toString('hex'),
         type: 'conflict_detected',
         timestamp: Date.now(),
         aircraftIds: [conflict.aircraft1, conflict.aircraft2],
-        message: `Traffic conflict: ${callsigns} - ${conflict.horizontalDist.toFixed(1)} NM / ${Math.round(conflict.verticalDist)} ft`,
+        message,
         severity: 'warning',
       });
     }
@@ -811,14 +873,17 @@ export class GameRoom {
     if (!justCrashed) return;
 
     const callsigns = `${aircraft1.callsign} and ${aircraft2.callsign}`;
-    const altitudeDiff = Math.abs(aircraft1.altitude - aircraft2.altitude);
+
+    // Use humorous crash message
+    const messageTemplate = pickRandom(CRASH_MESSAGES);
+    const message = messageTemplate(aircraft1.callsign, aircraft2.callsign);
 
     this.addEvent({
       id: randomBytes(8).toString('hex'),
       type: 'crash',
       timestamp: Date.now(),
       aircraftIds: [aircraft1.id, aircraft2.id],
-      message: `CRASH! ${callsigns} collided on radar (altitude difference: ${Math.round(altitudeDiff)} ft)`,
+      message,
       severity: 'critical',
     });
 
