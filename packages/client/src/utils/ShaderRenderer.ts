@@ -15,7 +15,6 @@ export class ShaderRenderer {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram | null = null;
   private texture: WebGLTexture | null = null;
-  private frameBuffer: WebGLFramebuffer | null = null;
 
   // Uniform locations
   private uniforms: {

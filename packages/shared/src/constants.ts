@@ -13,6 +13,11 @@ export const SEPARATION_MINIMUMS = {
   },
 } as const;
 
+export const CRASH_CONFIG = {
+  DISTANCE_THRESHOLD: 2, // NM - horizontal distance for crash (ignores altitude)
+  ANIMATION_DURATION: 2000, // ms - how long crash animation plays before removal
+} as const;
+
 export const POINTS = {
   successfulLanding: 100,
   onTimeLanding: 50, // Within 2 min of ETA

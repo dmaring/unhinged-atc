@@ -132,12 +132,11 @@ export class WeatherSystem {
           if (cell.type === 'storm') {
             events.push({
               id: `event_${randomBytes(4).toString('hex')}`,
-              type: 'warning',
+              type: 'emergency',
               message: `${ac.callsign} entered storm cell - risk of damage!`,
               timestamp: Date.now(),
               severity: 'warning',
               aircraftIds: [ac.id],
-              points: -25, // Small penalty for entering storm
             });
           }
         }

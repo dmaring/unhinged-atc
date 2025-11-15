@@ -49,6 +49,11 @@ export interface Aircraft {
   isLanded: boolean;
   hasCollided: boolean;
 
+  // Crash state (for animation)
+  isCrashing?: boolean;
+  crashTime?: number; // Timestamp when crash occurred
+  crashPosition?: Position; // Where the crash happened
+
   // Control tracking
   lastCommandBy?: string; // Controller ID who last commanded
   lastCommandTime?: number; // Timestamp

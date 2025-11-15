@@ -178,6 +178,9 @@ export class GameRoom {
         targetSpeed: aircraft.targetSpeed,
         fuel: aircraft.fuel,
         trailHistory: aircraft.trailHistory,
+        isCrashing: aircraft.isCrashing,
+        crashTime: aircraft.crashTime,
+        crashPosition: aircraft.crashPosition,
       });
     });
 
@@ -200,6 +203,37 @@ export class GameRoom {
           e.timestamp > delta.timestamp - 100
         );
       }
+    }
+
+    // Check for crashes (horizontal distance only, ignores altitude)
+    const crashes = this.collisionDetector.detectCrashes(this.gameState.aircraft);
+
+    if (crashes.length > 0) {
+      const currentTime = Date.now();
+
+      // Mark aircraft as crashing
+      this.collisionDetector.processCrashes(crashes, currentTime);
+
+      // Generate crash events
+      crashes.forEach(({ aircraft1, aircraft2 }) => {
+        this.handleCrash(aircraft1, aircraft2);
+      });
+    }
+
+    // Remove crashed aircraft after animation duration
+    const removedAircraftIds: string[] = [];
+    Object.values(this.gameState.aircraft).forEach((aircraft) => {
+      if (aircraft.isCrashing && aircraft.crashTime) {
+        const elapsedTime = Date.now() - aircraft.crashTime;
+        if (elapsedTime >= 2000) { // CRASH_CONFIG.ANIMATION_DURATION
+          removedAircraftIds.push(aircraft.id);
+          delete this.gameState.aircraft[aircraft.id];
+        }
+      }
+    });
+
+    if (removedAircraftIds.length > 0) {
+      delta.removedAircraftIds = removedAircraftIds;
     }
 
     // Check for fuel emergencies
@@ -749,6 +783,31 @@ export class GameRoom {
         severity: 'warning',
       });
     }
+  }
+
+  /**
+   * Handle crash event (aircraft crossing paths regardless of altitude)
+   */
+  private handleCrash(aircraft1: Aircraft, aircraft2: Aircraft): void {
+    if (!aircraft1 || !aircraft2) return;
+
+    // Only generate event for new crashes (when first marked as crashing)
+    const justCrashed = aircraft1.crashTime && (Date.now() - aircraft1.crashTime < 100);
+    if (!justCrashed) return;
+
+    const callsigns = `${aircraft1.callsign} and ${aircraft2.callsign}`;
+    const altitudeDiff = Math.abs(aircraft1.altitude - aircraft2.altitude);
+
+    this.addEvent({
+      id: randomBytes(8).toString('hex'),
+      type: 'crash',
+      timestamp: Date.now(),
+      aircraftIds: [aircraft1.id, aircraft2.id],
+      message: `CRASH! ${callsigns} collided on radar (altitude difference: ${Math.round(altitudeDiff)} ft)`,
+      severity: 'critical',
+    });
+
+    console.log(`[GameRoom ${this.gameState.roomId}] CRASH: ${callsigns}`);
   }
 
   /**

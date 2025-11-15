@@ -505,6 +505,40 @@ function drawAircraft(
     ctx.setLineDash([]);
   }
 
+  // Draw crash animation (expanding explosion circle)
+  let crashOpacity = 1.0;
+  if (aircraft.isCrashing && aircraft.crashTime) {
+    const elapsedTime = Date.now() - aircraft.crashTime;
+    const animationDuration = 2000; // 2 seconds
+    const progress = Math.min(elapsedTime / animationDuration, 1.0); // 0 to 1
+
+    // Expanding circle radius (0 to 40px)
+    const maxRadius = 40;
+    const explosionRadius = progress * maxRadius;
+
+    // Explosion opacity (fades out)
+    const explosionOpacity = 1.0 - progress;
+    crashOpacity = explosionOpacity;
+
+    // Draw expanding explosion circle
+    ctx.strokeStyle = `rgba(255, 100, 0, ${explosionOpacity})`;
+    ctx.fillStyle = `rgba(255, 50, 0, ${explosionOpacity * 0.3})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, explosionRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw inner flash
+    ctx.fillStyle = `rgba(255, 255, 200, ${explosionOpacity * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, explosionRadius * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Adjust aircraft color and opacity for crash
+    aircraftColor = '#FF0000';
+  }
+
   // Draw aircraft icon (triangle)
   ctx.save();
   ctx.translate(screenPos.x, screenPos.y);
@@ -513,6 +547,9 @@ function drawAircraft(
   ctx.rotate((aircraft.heading * Math.PI) / 180);
 
   const size = RADAR_CONFIG.AIRCRAFT_SIZE;
+
+  // Apply crash fade out opacity
+  ctx.globalAlpha = crashOpacity;
   ctx.fillStyle = aircraftColor;
 
   ctx.beginPath();
@@ -534,6 +571,8 @@ function drawAircraft(
   ctx.restore();
 
   // Draw callsign and data tag
+  ctx.save();
+  ctx.globalAlpha = crashOpacity; // Apply crash fade to data tag
   ctx.fillStyle = aircraftColor;
   ctx.font = '11px "Share Tech Mono", monospace';
   ctx.fillText(aircraft.callsign, screenPos.x + 12, screenPos.y - 5);
@@ -570,4 +609,6 @@ function drawAircraft(
     ctx.font = '9px "Share Tech Mono", monospace';
     ctx.fillText(`${aircraft.fuel.toFixed(0)}%`, screenPos.x + 12, screenPos.y + yOffset);
   }
+
+  ctx.restore(); // Restore opacity after data tag
 }

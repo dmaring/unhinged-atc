@@ -4,6 +4,7 @@ export type EventType =
   | "landing_success"
   | "near_miss"
   | "collision"
+  | "crash"
   | "emergency"
   | "conflict_detected"
   | "pilot_complaint"

@@ -1,4 +1,4 @@
-import { Aircraft, Conflict, SEPARATION_MINIMUMS } from 'shared';
+import { Aircraft, Conflict, SEPARATION_MINIMUMS, CRASH_CONFIG } from 'shared';
 import { AircraftPhysics } from './AircraftPhysics.js';
 
 export class CollisionDetector {
@@ -36,6 +36,38 @@ export class CollisionDetector {
     });
 
     return conflicts;
+  }
+
+  /**
+   * Check for crashes between aircraft (horizontal distance only, ignores altitude)
+   * Returns list of aircraft pairs that have crashed
+   */
+  detectCrashes(aircraft: Record<string, Aircraft>): Array<{ aircraft1: Aircraft; aircraft2: Aircraft }> {
+    const crashes: Array<{ aircraft1: Aircraft; aircraft2: Aircraft }> = [];
+    const aircraftList = Object.values(aircraft).filter(
+      (a) => !a.isLanded && !a.hasCollided && !a.isCrashing
+    );
+
+    // Check each pair of aircraft
+    for (let i = 0; i < aircraftList.length; i++) {
+      for (let j = i + 1; j < aircraftList.length; j++) {
+        const aircraft1 = aircraftList[i];
+        const aircraft2 = aircraftList[j];
+
+        // Check ONLY horizontal distance (ignore altitude)
+        const horizontalDist = this.physics.getDistance(
+          aircraft1.position,
+          aircraft2.position
+        );
+
+        // Crash if within threshold (2 NM)
+        if (horizontalDist <= CRASH_CONFIG.DISTANCE_THRESHOLD) {
+          crashes.push({ aircraft1, aircraft2 });
+        }
+      }
+    }
+
+    return crashes;
   }
 
   /**
@@ -106,6 +138,30 @@ export class CollisionDetector {
           aircraft2.targetSpeed = 0;
         }
       });
+  }
+
+  /**
+   * Process crash consequences (mark aircraft as crashing with animation state)
+   */
+  processCrashes(
+    crashes: Array<{ aircraft1: Aircraft; aircraft2: Aircraft }>,
+    currentTime: number
+  ): void {
+    crashes.forEach(({ aircraft1, aircraft2 }) => {
+      if (!aircraft1.isCrashing) {
+        aircraft1.isCrashing = true;
+        aircraft1.crashTime = currentTime;
+        aircraft1.crashPosition = { ...aircraft1.position };
+        aircraft1.targetSpeed = 0;
+      }
+
+      if (!aircraft2.isCrashing) {
+        aircraft2.isCrashing = true;
+        aircraft2.crashTime = currentTime;
+        aircraft2.crashPosition = { ...aircraft2.position };
+        aircraft2.targetSpeed = 0;
+      }
+    });
   }
 
   /**

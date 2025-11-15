@@ -228,7 +228,7 @@ httpServer.listen(PORT, () => {
 ╠═══════════════════════════════════════════════════════════╣
 ║  Status: ONLINE                                            ║
 ║  Port: ${PORT.toString().padEnd(52)}║
-║  CORS Origin: ${CORS_ORIGIN.padEnd(44)}║
+║  CORS Origin: ${(Array.isArray(CORS_ORIGIN) ? CORS_ORIGIN.join(', ') : CORS_ORIGIN).padEnd(44)}║
 ║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(44)}║
 ╚═══════════════════════════════════════════════════════════╝
   `);
