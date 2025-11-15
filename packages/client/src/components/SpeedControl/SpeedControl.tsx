@@ -8,22 +8,29 @@ interface SpeedControlProps {
 
 export function SpeedControl({ currentSpeed, onSpeedChange }: SpeedControlProps) {
   const [speed, setSpeed] = useState(currentSpeed);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleSpeedChange = (newSpeed: number) => {
     setSpeed(newSpeed);
     onSpeedChange(newSpeed);
   };
 
-  const presetSpeeds = [1, 5, 10, 15, 20, 30];
+  const presetSpeeds = [1, 5, 10];
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.title}>SIMULATION SPEED</div>
-        <div className={styles.currentSpeed}>{speed}x</div>
+    <div className={`${styles.container} ${isCollapsed ? styles.collapsed : ''}`}>
+      <div className={styles.header} onClick={() => setIsCollapsed(!isCollapsed)}>
+        <div className={styles.headerLeft}>
+          <div className={styles.title}>SIMULATION SPEED</div>
+          <div className={styles.currentSpeed}>{speed}x</div>
+        </div>
+        <button className={styles.collapseButton}>
+          {isCollapsed ? '▼' : '▲'}
+        </button>
       </div>
 
-      <div className={styles.controls}>
+      {!isCollapsed && (
+        <div className={styles.controls}>
         {/* Preset buttons */}
         <div className={styles.presets}>
           {presetSpeeds.map((presetSpeed) => (
@@ -65,7 +72,8 @@ export function SpeedControl({ currentSpeed, onSpeedChange }: SpeedControlProps)
             +
           </button>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

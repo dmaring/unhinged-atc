@@ -151,6 +151,9 @@ export class GameRoom {
       delta.newAircraft = [this.gameState.aircraft[`aircraft-${this.aircraftCounter}`]];
     }
 
+    // Track aircraft that exit the airspace
+    const outOfBoundsAircraftIds: string[] = [];
+
     // Update all aircraft
     Object.values(this.gameState.aircraft).forEach((aircraft) => {
       if (aircraft.isLanded || aircraft.hasCollided) return;
@@ -160,8 +163,8 @@ export class GameRoom {
 
       // Check if out of bounds
       if (!this.physics.isInBounds(aircraft, this.gameState.airspace.bounds)) {
-        this.handleAircraftOutOfBounds(aircraft);
-        return; // Skip sending update for removed aircraft
+        outOfBoundsAircraftIds.push(aircraft.id);
+        return; // Skip sending update for aircraft that will be removed
       }
 
       // Always send all aircraft updates (like a radar sweep)
@@ -183,6 +186,18 @@ export class GameRoom {
         crashPosition: aircraft.crashPosition,
       });
     });
+
+    // Remove out-of-bounds aircraft and notify clients
+    if (outOfBoundsAircraftIds.length > 0) {
+      outOfBoundsAircraftIds.forEach((aircraftId) => {
+        const aircraft = this.gameState.aircraft[aircraftId];
+        if (aircraft) {
+          this.handleAircraftOutOfBounds(aircraft);
+          delete this.gameState.aircraft[aircraftId];
+        }
+      });
+      delta.removedAircraftIds = [...(delta.removedAircraftIds || []), ...outOfBoundsAircraftIds];
+    }
 
     // Check for collisions and near misses
     const conflicts = this.collisionDetector.detectConflicts(this.gameState.aircraft);

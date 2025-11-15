@@ -188,5 +188,17 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     socket.emit('chaos_command', { type: chaosType });
   };
 
-  return { sendCommand, setTimeScale, sendChaosCommand };
+  /**
+   * Spawn a new aircraft
+   */
+  const spawnAircraft = () => {
+    if (!socket || !isConnected) {
+      console.warn('[GameSync] Cannot spawn aircraft: not connected');
+      return;
+    }
+
+    socket.emit('spawn_aircraft');
+  };
+
+  return { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft };
 }

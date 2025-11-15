@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useGameSync } from './hooks/useGameSync'
+import { useKeyboardControls } from './hooks/useKeyboardControls'
 import { useGameStore } from './stores/gameStore'
 import { RadarDisplay } from './components/RadarDisplay'
 import { ControlPanel } from './components/ControlPanel'
 import { SpeedControl } from './components/SpeedControl'
+import { SpawnControl } from './components/SpawnControl'
 import { ChaosPanel } from './components/ChaosPanel'
 
 function App() {
   const [isLoading, setIsLoading] = useState(true)
   const { socket, isConnected, connectionError } = useWebSocket()
-  const { sendCommand, setTimeScale, sendChaosCommand } = useGameSync(socket, isConnected)
+  const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft } = useGameSync(socket, isConnected)
 
   const gameState = useGameStore((state) => state.gameState)
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
@@ -32,6 +34,14 @@ function App() {
   const selectedAircraft = selectedAircraftId && gameState
     ? gameState.aircraft[selectedAircraftId]
     : null
+
+  // Enable keyboard controls for selected aircraft
+  useKeyboardControls({
+    selectedAircraft,
+    allAircraft: aircraftArray,
+    onCommand: sendCommand,
+    onSelectAircraft: setSelectedAircraft,
+  })
 
   useEffect(() => {
     // Simulate initialization
@@ -79,6 +89,9 @@ function App() {
           <SpeedControl
             currentSpeed={currentSpeed}
             onSpeedChange={setTimeScale}
+          />
+          <SpawnControl
+            onSpawnAircraft={spawnAircraft}
           />
           <ChaosPanel
             chaosAbilities={chaosAbilities}

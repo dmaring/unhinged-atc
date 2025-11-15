@@ -13,6 +13,25 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.header:hover {
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.collapsed .header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .title {
@@ -22,15 +41,43 @@
 }
 
 .currentSpeed {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
   color: #00ffff;
+}
+
+.collapseButton {
+  background: none;
+  border: none;
+  color: #00ff00;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.2s;
+  opacity: 0.6;
+}
+
+.collapseButton:hover {
+  opacity: 1;
+  transform: scale(1.2);
 }
 
 .controls {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .presets {

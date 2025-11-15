@@ -197,6 +197,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle spawn aircraft request
+  socket.on('spawn_aircraft', () => {
+    if (!currentRoom) {
+      socket.emit('error', { code: 'NO_ROOM', message: 'Not in a room' });
+      return;
+    }
+
+    const room = gameEngine.getRoom(currentRoom);
+    if (!room) {
+      socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+      return;
+    }
+
+    // Spawn a new random aircraft
+    room.spawnRandomAircraft();
+    console.log(`[GameRoom ${currentRoom}] Aircraft manually spawned by ${socket.id}`);
+  });
+
   // Handle disconnect
   socket.on('disconnect', (reason) => {
     console.log(`[${new Date().toISOString()}] Client disconnected: ${socket.id}, reason: ${reason}`);
