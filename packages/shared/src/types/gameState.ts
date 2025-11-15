@@ -42,6 +42,7 @@ export interface Airspace {
 export interface Controller {
   id: string; // Socket ID
   username: string;
+  email: string; // Email address (logged but not displayed to other players)
   joinedAt: number;
   commandsIssued: number;
   score: number;

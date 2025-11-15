@@ -263,26 +263,6 @@ export class GameRoom {
       conflicts.forEach((conflict) => {
         this.handleConflict(conflict);
       });
-
-      // Add new events to delta (only send each event once)
-      if (this.gameState.recentEvents.length > 0) {
-        // Filter for events that haven't been sent yet
-        const unsentEvents = this.gameState.recentEvents.filter((e) =>
-          !this.sentEventIds.has(e.id)
-        );
-
-        if (unsentEvents.length > 0) {
-          delta.newEvents = unsentEvents;
-          // Mark these events as sent
-          unsentEvents.forEach((e) => this.sentEventIds.add(e.id));
-
-          // Limit sentEventIds size to prevent memory leak (keep last 100)
-          if (this.sentEventIds.size > 100) {
-            const idsArray = Array.from(this.sentEventIds);
-            this.sentEventIds = new Set(idsArray.slice(-100));
-          }
-        }
-      }
     }
 
     // Check for crashes (horizontal distance only, ignores altitude)
@@ -377,16 +357,37 @@ export class GameRoom {
     delta.gameTime = this.gameState.gameTime;
     delta.nextBonusAt = this.gameState.nextBonusAt;
 
+    // Add new events to delta (only send each event once)
+    if (this.gameState.recentEvents.length > 0) {
+      // Filter for events that haven't been sent yet
+      const unsentEvents = this.gameState.recentEvents.filter((e) =>
+        !this.sentEventIds.has(e.id)
+      );
+
+      if (unsentEvents.length > 0) {
+        delta.newEvents = unsentEvents;
+        // Mark these events as sent
+        unsentEvents.forEach((e) => this.sentEventIds.add(e.id));
+
+        // Limit sentEventIds size to prevent memory leak (keep last 100)
+        if (this.sentEventIds.size > 100) {
+          const idsArray = Array.from(this.sentEventIds);
+          this.sentEventIds = new Set(idsArray.slice(-100));
+        }
+      }
+    }
+
     return delta;
   }
 
   /**
    * Add a controller to the room
    */
-  addController(socketId: string, username: string): Controller {
+  addController(socketId: string, username: string, email: string): Controller {
     const controller: Controller = {
       id: socketId,
       username,
+      email,
       joinedAt: Date.now(),
       commandsIssued: 0,
       score: 0,
@@ -394,16 +395,16 @@ export class GameRoom {
 
     this.gameState.controllers[socketId] = controller;
 
-    // Add event - DISABLED until real multiplayer
-    // this.addEvent({
-    //   id: randomBytes(8).toString('hex'),
-    //   type: 'achievement',
-    //   timestamp: Date.now(),
-    //   aircraftIds: [],
-    //   controllerId: socketId,
-    //   message: `${username} joined the tower`,
-    //   severity: 'info',
-    // });
+    // Add event for controller joining
+    this.addEvent({
+      id: randomBytes(8).toString('hex'),
+      type: 'achievement',
+      timestamp: Date.now(),
+      aircraftIds: [],
+      controllerId: socketId,
+      message: `> CONTROLLER ${username} ONLINE`,
+      severity: 'info',
+    });
 
     console.log(`[GameRoom ${this.gameState.roomId}] Controller joined: ${username} (${socketId})`);
 
@@ -419,16 +420,16 @@ export class GameRoom {
 
     delete this.gameState.controllers[socketId];
 
-    // Add event - DISABLED until real multiplayer
-    // this.addEvent({
-    //   id: randomBytes(8).toString('hex'),
-    //   type: 'achievement',
-    //   timestamp: Date.now(),
-    //   aircraftIds: [],
-    //   controllerId: socketId,
-    //   message: `${controller.username} left the tower`,
-    //   severity: 'info',
-    // });
+    // Add event for controller leaving
+    this.addEvent({
+      id: randomBytes(8).toString('hex'),
+      type: 'achievement',
+      timestamp: Date.now(),
+      aircraftIds: [],
+      controllerId: socketId,
+      message: `> CONTROLLER ${controller.username} OFFLINE`,
+      severity: 'info',
+    });
 
     console.log(`[GameRoom ${this.gameState.roomId}] Controller left: ${controller.username}`);
   }
@@ -654,7 +655,7 @@ export class GameRoom {
   /**
    * Spawn a random aircraft at the edge of the airspace
    */
-  private spawnRandomAircraft(): void {
+  spawnRandomAircraft(): void {
     const airlines = ['UAL', 'DAL', 'AAL', 'SWA', 'JBU', 'ASA', 'FFT'];
     const types: AircraftType[] = ['B738', 'A320', 'B77W', 'E75L'];
 
@@ -709,7 +710,7 @@ export class GameRoom {
     console.log(`[GameRoom ${this.gameState.roomId}] Aircraft ${aircraft.callsign} left airspace`);
 
     // Reward for successfully clearing airspace (unless crashed)
-    if (!aircraft.crashed) {
+    if (!aircraft.isCrashing && !aircraft.hasCollided) {
       this.gameState.score += POINTS.planeCleared; // +100 points
       this.gameState.planesCleared += 1;
 
@@ -974,5 +975,116 @@ export class GameRoom {
       Math.abs(prev.speed - current.speed) > 0.1 ||
       Math.abs(prev.fuel - current.fuel) > 0.01
     );
+  }
+
+  /**
+   * Reset the game to initial state (admin function)
+   * Clears all aircraft, resets scores, and spawns new aircraft
+   * Preserves the room and connected controllers
+   */
+  reset(): GameState {
+    const roomId = this.gameState.roomId;
+    const controllers = this.gameState.controllers;
+
+    console.log(`[GameRoom ${roomId}] Resetting game...`);
+
+    // Clear tracking sets
+    this.fuelWarnings.clear();
+    this.fuelEmergencies.clear();
+    this.sentEventIds.clear();
+    this.previousWeatherCells = [];
+
+    // Reset counters
+    this.aircraftCounter = 0;
+    this.lastSpawnTime = 0;
+
+    // Reinitialize game state
+    this.gameState = {
+      roomId,
+      createdAt: Date.now(),
+      aircraft: {},
+      airspace: {
+        bounds: {
+          minX: -25,
+          maxX: 25,
+          minY: -25,
+          maxY: 25,
+        },
+        airports: [
+          {
+            code: 'KSFO',
+            name: 'San Francisco International',
+            position: { x: -15, y: -10 },
+            runways: [
+              { name: '28L', heading: 280, length: 11870, position: { x: -15, y: -10 } },
+              { name: '28R', heading: 280, length: 11381, position: { x: -15, y: -10.5 } },
+            ],
+          },
+          {
+            code: 'KOAK',
+            name: 'Oakland International',
+            position: { x: 10, y: 12 },
+            runways: [
+              { name: '30', heading: 300, length: 10000, position: { x: 10, y: 12 } },
+            ],
+          },
+        ],
+        waypoints: [
+          // Entry/Exit Points at airspace edges
+          { name: 'ENTRY_N', position: { x: 0, y: 22 } },
+          { name: 'ENTRY_S', position: { x: 0, y: -22 } },
+          { name: 'ENTRY_E', position: { x: 22, y: 0 } },
+          { name: 'ENTRY_W', position: { x: -22, y: 0 } },
+
+          // KSFO Approach Fixes
+          { name: 'KSFO_IAF_N', position: { x: -15, y: 5 }, altitude: 5000 },
+          { name: 'KSFO_IAF_S', position: { x: -15, y: -20 }, altitude: 5000 },
+          { name: 'KSFO_FAF', position: { x: -15, y: -5 }, altitude: 2000 },
+
+          // KOAK Approach Fixes
+          { name: 'KOAK_IAF_N', position: { x: 10, y: 20 }, altitude: 4000 },
+          { name: 'KOAK_IAF_E', position: { x: 20, y: 12 }, altitude: 4000 },
+          { name: 'KOAK_FAF', position: { x: 15, y: 12 }, altitude: 2000 },
+
+          // Intermediate Waypoints
+          { name: 'MIDPT', position: { x: 0, y: 0 } },
+          { name: 'HOLD_1', position: { x: -5, y: 15 } },
+          { name: 'HOLD_2', position: { x: 5, y: -15 } },
+        ],
+        restrictedZones: [],
+        weather: [],
+      },
+      controllers,
+      score: 0,
+      successfulLandings: 0,
+      nearMisses: 0,
+      collisions: 0,
+      planesCleared: 0,
+      crashCount: 0,
+      recentEvents: [],
+      gameTime: 0,
+      isPaused: false,
+      timeScale: 10, // Default 10x speed
+      gameStartTime: Date.now(),
+      lastSpawnTime: 0,
+      nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
+      chaosAbilities: {},
+    };
+
+    // Initialize chaos abilities cooldowns
+    Object.keys(CHAOS_ABILITIES).forEach((chaosType) => {
+      this.gameState.chaosAbilities[chaosType] = {
+        lastUsed: 0,
+        usageCount: 0,
+      };
+    });
+
+    // Spawn initial aircraft
+    this.spawnInitialAircraft();
+
+    console.log(`[GameRoom ${roomId}] Game reset complete. New aircraft spawned.`);
+
+    // Return the new game state
+    return this.gameState;
   }
 }

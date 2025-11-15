@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { Socket } from 'socket.io-client';
-import { GameState, StateDelta, GameEvent, Controller, ChaosType } from 'shared';
+import { GameState, StateDelta, Controller, ChaosType } from 'shared';
 import { useGameStore } from '../stores/gameStore';
 
-export function useGameSync(socket: Socket | null, isConnected: boolean) {
+export function useGameSync(
+  socket: Socket | null,
+  isConnected: boolean,
+  username: string,
+  email: string,
+  onJoinError?: (error: string) => void
+) {
   const setGameState = useGameStore((state) => state.setGameState);
   const updateAircraft = useGameStore((state) => state.updateAircraft);
   const addAircraft = useGameStore((state) => state.addAircraft);
@@ -14,13 +20,14 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
   const updateTimeScale = useGameStore((state) => state.updateTimeScale);
   const updateChaosAbilities = useGameStore((state) => state.updateChaosAbilities);
   const updateScoreMetrics = useGameStore((state) => state.updateScoreMetrics);
+  const resetStore = useGameStore((state) => state.reset);
 
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket || !isConnected || !username || !email) return;
 
-    // Auto-join default room
-    const username = `Controller${Math.floor(Math.random() * 1000)}`;
-    socket.emit('join_room', { roomId: 'default', username });
+    // Join default room with provided username and email
+    console.log(`[GameSync] Joining room with username: ${username}, email: ${email}`);
+    socket.emit('join_room', { roomId: 'default', username, email });
 
     // Handle initial game state
     const onGameState = (state: GameState) => {
@@ -30,11 +37,6 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
 
     // Handle state updates (60 FPS from server)
     const onStateUpdate = (delta: StateDelta) => {
-      // Debug logging
-      if (delta.aircraftUpdates && delta.aircraftUpdates.length > 0) {
-        console.log('[GameSync] Received aircraft updates:', delta.aircraftUpdates.length);
-      }
-
       // Update aircraft
       delta.aircraftUpdates?.forEach((update) => {
         if (update.id) {
@@ -122,6 +124,23 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       // Could show a toast notification here
     };
 
+    // Handle game reset
+    const onGameReset = (state: GameState) => {
+      console.log('[GameSync] Game reset - received new state');
+      // Clear local state first
+      resetStore();
+      // Set the new game state
+      setGameState(state);
+    };
+
+    // Handle join errors (username taken, profanity, etc.)
+    const handleJoinError = (data: { message: string }) => {
+      console.error('[GameSync] Join error:', data.message);
+      if (onJoinError) {
+        onJoinError(data.message);
+      }
+    };
+
     // Register event listeners
     socket.on('game_state', onGameState);
     socket.on('state_update', onStateUpdate);
@@ -132,6 +151,8 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     socket.on('chaos_activated', onChaosActivated);
     socket.on('chaos_state_updated', onChaosStateUpdated);
     socket.on('chaos_failed', onChaosFailed);
+    socket.on('game_reset', onGameReset);
+    socket.on('join_error', handleJoinError);
 
     // Cleanup
     return () => {
@@ -144,21 +165,13 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       socket.off('chaos_activated', onChaosActivated);
       socket.off('chaos_state_updated', onChaosStateUpdated);
       socket.off('chaos_failed', onChaosFailed);
+      socket.off('game_reset', onGameReset);
+      socket.off('join_error', handleJoinError);
     };
-  }, [
-    socket,
-    isConnected,
-    setGameState,
-    updateAircraft,
-    addAircraft,
-    removeAircraft,
-    addEvent,
-    updateController,
-    removeController,
-    updateTimeScale,
-    updateChaosAbilities,
-    updateScoreMetrics,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, isConnected, username, email, onJoinError]);
+  // Note: Zustand store selectors are intentionally excluded from dependencies
+  // They are stable references and including them causes infinite re-renders
 
   /**
    * Send an aircraft command
@@ -212,5 +225,18 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     socket.emit('spawn_aircraft', { count });
   };
 
-  return { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft };
+  /**
+   * Reset the game (admin function)
+   */
+  const resetGame = () => {
+    if (!socket || !isConnected) {
+      console.warn('[GameSync] Cannot reset game: not connected');
+      return;
+    }
+
+    console.log('[GameSync] Requesting game reset...');
+    socket.emit('reset_game');
+  };
+
+  return { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame };
 }

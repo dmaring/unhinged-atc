@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { wsService } from '../services/websocket';
 
-export function useWebSocket(): {
+export function useWebSocket(enabled: boolean = true): {
   socket: Socket | null;
   isConnected: boolean;
   connectionError: string | null;
@@ -12,6 +12,9 @@ export function useWebSocket(): {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Don't connect if not enabled (e.g., waiting for authentication)
+    if (!enabled) return;
+
     // Connect to WebSocket server
     const sock = wsService.connect();
     setSocket(sock);
@@ -41,7 +44,7 @@ export function useWebSocket(): {
       sock.off('connect_error', onError);
       // Don't disconnect here - let the service manage it
     };
-  }, []);
+  }, [enabled]);
 
   return {
     socket,

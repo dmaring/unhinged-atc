@@ -67,8 +67,9 @@ export function NotificationPanel({ maxMessages = 50 }: NotificationPanelProps) 
       type: mapSeverityToType(event.severity)
     }));
 
-    // Combine boot messages with game events and limit to maxMessages
+    // Combine boot messages with game events, sort by timestamp, and limit to maxMessages
     const allNotifications = [...BOOT_MESSAGES, ...eventNotifications];
+    allNotifications.sort((a, b) => a.timestamp - b.timestamp);
     return allNotifications.slice(-maxMessages);
   }, [gameEvents, maxMessages]);
 

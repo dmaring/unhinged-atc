@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useGameSync } from './hooks/useGameSync'
@@ -10,11 +10,33 @@ import { SpeedControl } from './components/SpeedControl'
 import { SpawnControl } from './components/SpawnControl'
 import { ChaosPanel } from './components/ChaosPanel'
 import { NotificationPanel } from './components/NotificationPanel'
+import { ResetConfirmationModal } from './components/ResetConfirmationModal'
+import { LoginScreen } from './components/LoginScreen'
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true)
-  const { socket, isConnected, connectionError } = useWebSocket()
-  const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft } = useGameSync(socket, isConnected)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [showResetModal, setShowResetModal] = useState(false)
+
+  // Always call hook, but only enable WebSocket after authentication
+  const { socket, isConnected, connectionError } = useWebSocket(isAuthenticated)
+
+  // Memoized error handler to prevent infinite re-renders
+  const handleJoinError = useCallback((error: string) => {
+    // Handle join errors (username taken, profanity, etc.)
+    setLoginError(error)
+    setIsAuthenticated(false)
+  }, [])
+
+  const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame } = useGameSync(
+    socket,
+    isConnected,
+    username,
+    email,
+    handleJoinError
+  )
 
   const gameState = useGameStore((state) => state.gameState)
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
@@ -36,7 +58,7 @@ function App() {
     ? gameState.aircraft[selectedAircraftId]
     : null
 
-  // Enable keyboard controls for selected aircraft
+  // Enable keyboard controls for selected aircraft (only when authenticated)
   useKeyboardControls({
     selectedAircraft,
     allAircraft: aircraftArray,
@@ -44,22 +66,46 @@ function App() {
     onSelectAircraft: setSelectedAircraft,
   })
 
-  useEffect(() => {
-    // Simulate initialization
-    setTimeout(() => setIsLoading(false), 1000)
-  }, [])
-
-  if (isLoading) {
-    return (
-      <div className="app">
-        <div className="loading">
-          INITIALIZING UNHINGED ATC SYSTEM...
-        </div>
-        <div className="scanline"></div>
-      </div>
-    )
+  // Handle login
+  const handleLogin = (newUsername: string, newEmail: string) => {
+    setUsername(newUsername)
+    setEmail(newEmail)
+    setLoginError(null)
+    setIsAuthenticated(true)
   }
 
+  // Admin reset keyboard shortcut: Ctrl+Shift+Alt+R (Windows/Linux) or Cmd+Shift+Alt+R (Mac)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const modifierKey = e.ctrlKey || e.metaKey; // metaKey is Cmd on Mac, Win key on Windows
+
+      // Check for reset shortcut (case-insensitive, also check e.code for reliability)
+      const isResetKey = e.key.toLowerCase() === 'r' || e.code === 'KeyR';
+      if (modifierKey && e.shiftKey && e.altKey && isResetKey) {
+        e.preventDefault()
+        setShowResetModal(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const handleResetConfirm = () => {
+    resetGame()
+    setShowResetModal(false)
+  }
+
+  const handleResetCancel = () => {
+    setShowResetModal(false)
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} error={loginError} />
+  }
+
+  // Show game UI when authenticated
   return (
     <div className="app">
       <div className="header">
@@ -111,6 +157,11 @@ function App() {
         </div>
       </div>
       <div className="scanline"></div>
+      <ResetConfirmationModal
+        isOpen={showResetModal}
+        onConfirm={handleResetConfirm}
+        onCancel={handleResetCancel}
+      />
     </div>
   )
 }

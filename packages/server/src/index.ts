@@ -4,6 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { randomBytes } from 'crypto';
+import { Filter } from 'bad-words';
 import { GameEngine } from './game/GameEngine.js';
 import { AircraftCommand, ChaosCommand } from 'shared';
 
@@ -12,6 +13,9 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || ['http://localhost:5173', 'http://localhost:5174'];
+
+// Profanity filter
+const profanityFilter = new Filter();
 
 // Create Express app
 const app: Express = express();
@@ -56,9 +60,29 @@ io.on('connection', (socket) => {
   let currentRoom: string | null = null;
 
   // Handle join room
-  socket.on('join_room', (data: { roomId?: string; username: string }) => {
+  socket.on('join_room', (data: { roomId?: string; username: string; email?: string }) => {
     const roomId = data.roomId || 'default';
-    const username = data.username || `Player${socket.id.slice(0, 4)}`;
+    const username = data.username?.trim();
+    const email = data.email?.trim();
+
+    // Validate username and email are provided
+    if (!username || !email) {
+      socket.emit('join_error', { message: 'Screen name and email are required' });
+      return;
+    }
+
+    // Validate username length
+    if (username.length < 3 || username.length > 20) {
+      socket.emit('join_error', { message: 'Screen name must be between 3 and 20 characters' });
+      return;
+    }
+
+    // Check for profanity in username
+    if (profanityFilter.isProfane(username)) {
+      console.log(`[Socket ${socket.id}] Rejected username "${username}" - contains profanity`);
+      socket.emit('join_error', { message: 'Screen name contains inappropriate language' });
+      return;
+    }
 
     // Leave previous room if any
     if (currentRoom) {
@@ -69,25 +93,47 @@ io.on('connection', (socket) => {
       }
     }
 
+    // Get or create room
+    const room = gameEngine.getOrCreateRoom(roomId);
+
+    // Check if username is already taken in this room
+    const existingControllers = Object.values(room.getGameState().controllers);
+    const usernameTaken = existingControllers.some(
+      (controller) => controller.username.toLowerCase() === username.toLowerCase() && controller.id !== socket.id
+    );
+
+    if (usernameTaken) {
+      console.log(`[Socket ${socket.id}] Rejected username "${username}" - already taken in room ${roomId}`);
+      socket.emit('join_error', { message: 'Screen name is already taken. Please choose another.' });
+      return;
+    }
+
     // Join new room
     socket.join(roomId);
     currentRoom = roomId;
 
-    // Add controller to room
-    const room = gameEngine.getOrCreateRoom(roomId);
-    const controller = room.addController(socket.id, username);
+    // Add controller to room with email
+    const controller = room.addController(socket.id, username, email);
+
+    // Log the join event with email
+    console.log(`[Socket ${socket.id}] User joined - Username: ${username}, Email: ${email}, Room: ${roomId}`);
 
     // Send initial game state
     const gameState = room.getGameState();
     socket.emit('game_state', gameState);
 
-    // Notify others
+    // Notify others (without email for privacy)
     socket.to(roomId).emit('controller_update', {
       type: 'joined',
-      controller,
+      controller: {
+        id: controller.id,
+        username: controller.username,
+        joinedAt: controller.joinedAt,
+        commandsIssued: controller.commandsIssued,
+        score: controller.score,
+        // Email is intentionally omitted from broadcast
+      },
     });
-
-    console.log(`[Socket ${socket.id}] Joined room ${roomId} as ${username}`);
   });
 
   // Handle aircraft command
@@ -219,6 +265,30 @@ io.on('connection', (socket) => {
     }
 
     console.log(`[GameRoom ${currentRoom}] ${count} aircraft manually spawned by ${socket.id}`);
+  });
+
+  // Handle game reset (admin function)
+  socket.on('reset_game', () => {
+    if (!currentRoom) {
+      socket.emit('error', { code: 'NO_ROOM', message: 'Not in a room' });
+      return;
+    }
+
+    const room = gameEngine.getRoom(currentRoom);
+    if (!room) {
+      socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+      return;
+    }
+
+    console.log(`[GameRoom ${currentRoom}] Game reset requested by ${socket.id}`);
+
+    // Reset the game room
+    const newGameState = room.reset();
+
+    // Broadcast the reset game state to all clients in the room
+    io.to(currentRoom).emit('game_reset', newGameState);
+
+    console.log(`[GameRoom ${currentRoom}] Game reset complete, new state broadcasted to all clients`);
   });
 
   // Handle disconnect
