@@ -47,6 +47,7 @@ export class GameRoom {
   private lastSpawnTime = 0;
   private fuelWarnings: Set<string> = new Set(); // Track aircraft with fuel warnings
   private fuelEmergencies: Set<string> = new Set(); // Track aircraft with fuel emergencies
+  private sentEventIds: Set<string> = new Set(); // Track event IDs that have been sent in deltas
   private previousWeatherCells: WeatherCell[] = [];
 
   constructor(roomId: string) {
@@ -224,12 +225,24 @@ export class GameRoom {
         this.handleConflict(conflict);
       });
 
-      // Add new events to delta
+      // Add new events to delta (only send each event once)
       if (this.gameState.recentEvents.length > 0) {
-        const latestEvents = this.gameState.recentEvents.slice(0, 5);
-        delta.newEvents = latestEvents.filter((e) =>
-          e.timestamp > delta.timestamp - 100
+        // Filter for events that haven't been sent yet
+        const unsentEvents = this.gameState.recentEvents.filter((e) =>
+          !this.sentEventIds.has(e.id)
         );
+
+        if (unsentEvents.length > 0) {
+          delta.newEvents = unsentEvents;
+          // Mark these events as sent
+          unsentEvents.forEach((e) => this.sentEventIds.add(e.id));
+
+          // Limit sentEventIds size to prevent memory leak (keep last 100)
+          if (this.sentEventIds.size > 100) {
+            const idsArray = Array.from(this.sentEventIds);
+            this.sentEventIds = new Set(idsArray.slice(-100));
+          }
+        }
       }
     }
 

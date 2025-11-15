@@ -63,12 +63,13 @@ export class GameEngine {
       // Always emit delta (clients can decide if they need to act on it)
       this.io.to(roomId).emit('state_update', delta);
 
-      // Broadcast new events
-      if (delta.newEvents && delta.newEvents.length > 0) {
-        delta.newEvents.forEach((event) => {
-          this.io.to(roomId).emit('game_event', event);
-        });
-      }
+      // Broadcast new events - DISABLED: events are already in delta.newEvents
+      // Emitting separately was causing duplicates on the client side
+      // if (delta.newEvents && delta.newEvents.length > 0) {
+      //   delta.newEvents.forEach((event) => {
+      //     this.io.to(roomId).emit('game_event', event);
+      //   });
+      // }
     });
   }
 

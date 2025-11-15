@@ -84,6 +84,13 @@ export const useGameStore = create<GameStore>((set) => ({
     set((store) => {
       if (!store.gameState) return store;
 
+      // Check for duplicate event IDs to prevent duplicates
+      const isDuplicate = store.gameState.recentEvents.some((e) => e.id === event.id);
+      if (isDuplicate) {
+        console.log('[gameStore] Skipping duplicate event:', event.id);
+        return store;
+      }
+
       const recentEvents = [event, ...store.gameState.recentEvents].slice(0, 20);
       return {
         gameState: {

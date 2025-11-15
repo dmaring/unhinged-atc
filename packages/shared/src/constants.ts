@@ -55,27 +55,27 @@ export const CHAOS_ABILITIES = {
   reverse_course: {
     name: "Reverse Course",
     description: "Flip all aircraft headings 180°",
-    cooldownDuration: 30000, // 30 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
   altitude_roulette: {
     name: "Altitude Roulette",
     description: "Randomize all aircraft altitudes ±5000ft",
-    cooldownDuration: 45000, // 45 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
   speed_lottery: {
     name: "Speed Lottery",
     description: "Random speed changes to all aircraft",
-    cooldownDuration: 30000, // 30 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
   gravity_well: {
     name: "Gravity Well",
     description: "Pull all aircraft toward center",
-    cooldownDuration: 60000, // 60 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
   scatter_blast: {
     name: "Scatter Blast",
     description: "Push all aircraft away from center",
-    cooldownDuration: 60000, // 60 seconds
+    cooldownDuration: 10000, // 10 seconds
   },
   callsign_shuffle: {
     name: "Callsign Shuffle",

@@ -66,11 +66,12 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
       }
     };
 
-    // Handle game events
-    const onGameEvent = (event: GameEvent) => {
-      console.log('[GameSync] Event:', event.message);
-      addEvent(event);
-    };
+    // Handle game events - REMOVED: events now only come via delta.newEvents
+    // This prevents duplicate event handling
+    // const onGameEvent = (event: GameEvent) => {
+    //   console.log('[GameSync] Event:', event.message);
+    //   addEvent(event);
+    // };
 
     // Handle controller updates
     const onControllerUpdate = (data: { type: 'joined' | 'left'; controller: Controller }) => {
@@ -114,7 +115,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     // Register event listeners
     socket.on('game_state', onGameState);
     socket.on('state_update', onStateUpdate);
-    socket.on('game_event', onGameEvent);
+    // socket.on('game_event', onGameEvent); // REMOVED: events now only come via delta.newEvents
     socket.on('controller_update', onControllerUpdate);
     socket.on('command_issued', onCommandIssued);
     socket.on('time_scale_updated', onTimeScaleUpdated);
@@ -126,7 +127,7 @@ export function useGameSync(socket: Socket | null, isConnected: boolean) {
     return () => {
       socket.off('game_state', onGameState);
       socket.off('state_update', onStateUpdate);
-      socket.off('game_event', onGameEvent);
+      // socket.off('game_event', onGameEvent); // REMOVED: events now only come via delta.newEvents
       socket.off('controller_update', onControllerUpdate);
       socket.off('command_issued', onCommandIssued);
       socket.off('time_scale_updated', onTimeScaleUpdated);
