@@ -75,6 +75,97 @@ app.get('/stats', (req, res) => {
   res.json(stats);
 });
 
+// Admin endpoint - password protected
+app.get('/api/admin/status', (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  // Check if admin password is configured
+  if (!adminPassword) {
+    return res.status(503).json({
+      error: 'Admin panel not configured'
+    });
+  }
+
+  // Check Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      error: 'Unauthorized - Missing or invalid authorization header'
+    });
+  }
+
+  const providedPassword = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  // Verify password
+  if (providedPassword !== adminPassword) {
+    return res.status(401).json({
+      error: 'Unauthorized - Invalid password'
+    });
+  }
+
+  // Get admin status data
+  try {
+    const stats = gameEngine.getStats();
+    const rooms = gameEngine.getAllRooms();
+
+    // Get detailed info from the main room (default)
+    const mainRoom = rooms.get('default');
+
+    if (!mainRoom) {
+      return res.json({
+        stats,
+        activePlayers: [],
+        queuedPlayers: [],
+      });
+    }
+
+    const gameState = mainRoom.getGameState();
+    const queuedPlayers = mainRoom.getQueuedPlayers();
+
+    // Format active players
+    const activePlayers = Object.values(gameState.controllers).map((controller) => ({
+      id: controller.id,
+      username: controller.username,
+      email: controller.email,
+      joinedAt: controller.joinedAt,
+      commandsIssued: controller.commandsIssued,
+      score: controller.score,
+    }));
+
+    // Format queued players
+    const formattedQueuedPlayers = queuedPlayers.map((player) => ({
+      socketId: player.socketId,
+      username: player.username,
+      email: player.email,
+      position: player.position,
+      joinedQueueAt: player.joinedQueueAt,
+      waitTime: Date.now() - player.joinedQueueAt,
+    }));
+
+    res.json({
+      stats,
+      activePlayers,
+      queuedPlayers: formattedQueuedPlayers,
+      gameState: {
+        score: gameState.score,
+        planesCleared: gameState.planesCleared,
+        crashCount: gameState.crashCount,
+        successfulLandings: gameState.successfulLandings,
+        nearMisses: gameState.nearMisses,
+        collisions: gameState.collisions,
+        aircraftCount: Object.keys(gameState.aircraft).length,
+        timeScale: gameState.timeScale,
+        gameTime: gameState.gameTime,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching admin status:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+});
+
 // Serve static files from client dist directory in production
 if (process.env.NODE_ENV === 'production') {
   const clientDistPath = path.join(__dirname, '../../client/dist');

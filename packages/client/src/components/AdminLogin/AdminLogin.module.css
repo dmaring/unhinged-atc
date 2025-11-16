@@ -1,0 +1,199 @@
+.container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Share Tech Mono', monospace;
+  color: #00ff00;
+}
+
+.scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 255, 0, 0.02) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: scanlineMove 0.5s linear infinite;
+}
+
+@keyframes scanlineMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 4px;
+  }
+}
+
+.loginBox {
+  background: rgba(0, 20, 0, 0.9);
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header {
+  margin-bottom: 30px;
+  text-align: center;
+  border-bottom: 1px solid #00ff00;
+  padding-bottom: 15px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px #00ff00;
+}
+
+.subtitle {
+  font-size: 14px;
+  opacity: 0.7;
+  letter-spacing: 2px;
+}
+
+.form {
+  margin-bottom: 30px;
+}
+
+.inputGroup {
+  margin-bottom: 20px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  background: #000;
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: #00ff00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+.input::placeholder {
+  color: rgba(0, 255, 0, 0.3);
+}
+
+.error {
+  padding: 12px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #ff0000;
+  color: #ff0000;
+  font-size: 14px;
+  margin-bottom: 20px;
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 12px;
+}
+
+.loginButton {
+  flex: 1;
+  padding: 14px 24px;
+  background: #000;
+  border: 2px solid #00ff00;
+  color: #00ff00;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 2px;
+}
+
+.loginButton:hover {
+  background: rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.loginButton:active {
+  transform: translateY(0);
+}
+
+.backButton {
+  flex: 1;
+  padding: 14px 24px;
+  background: #000;
+  border: 1px solid rgba(0, 255, 0, 0.5);
+  color: rgba(0, 255, 0, 0.7);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.backButton:hover {
+  border-color: #00ff00;
+  color: #00ff00;
+}
+
+.footer {
+  text-align: center;
+  border-top: 1px solid rgba(0, 255, 0, 0.3);
+  padding-top: 15px;
+}
+
+.footerLine {
+  font-size: 11px;
+  opacity: 0.5;
+  letter-spacing: 1px;
+}

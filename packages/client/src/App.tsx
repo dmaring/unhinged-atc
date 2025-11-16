@@ -17,6 +17,8 @@ import { QueueScreen } from './components/QueueScreen'
 import { GameFullScreen } from './components/GameFullScreen'
 import { GameEndModal } from './components/GameEndModal'
 import { ChaosAlert } from './components/ChaosAlert'
+import { AdminLogin } from './components/AdminLogin'
+import { AdminPanel } from './components/AdminPanel'
 import { GameEndData } from 'shared'
 
 function App() {
@@ -41,6 +43,31 @@ function App() {
   // Chaos alert state
   const [chaosAlertName, setChaosAlertName] = useState<string | null>(null)
   const [chaosAlertDescription, setChaosAlertDescription] = useState<string | null>(null)
+
+  // Admin mode state
+  const [isAdminMode, setIsAdminMode] = useState(false)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
+  const [adminPassword, setAdminPassword] = useSessionStorage<string>('admin_password', '')
+  const [adminLoginError, setAdminLoginError] = useState<string | null>(null)
+
+  // Check for admin route on mount and hash change
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      setIsAdminMode(window.location.hash === '#/admin')
+    }
+
+    checkAdminRoute()
+    window.addEventListener('hashchange', checkAdminRoute)
+
+    return () => window.removeEventListener('hashchange', checkAdminRoute)
+  }, [])
+
+  // Auto-authenticate admin if password exists in sessionStorage
+  useEffect(() => {
+    if (isAdminMode && adminPassword && !isAdminAuthenticated) {
+      setIsAdminAuthenticated(true)
+    }
+  }, [isAdminMode, adminPassword, isAdminAuthenticated])
 
   // Auto-authenticate on mount if credentials exist in sessionStorage
   useEffect(() => {
@@ -176,6 +203,20 @@ function App() {
     setIsAuthenticated(true)
   }
 
+  // Admin login handler
+  const handleAdminLogin = (password: string) => {
+    setAdminPassword(password)
+    setAdminLoginError(null)
+    setIsAdminAuthenticated(true)
+  }
+
+  // Admin logout handler
+  const handleAdminLogout = () => {
+    setAdminPassword('')
+    setIsAdminAuthenticated(false)
+    setAdminLoginError(null)
+  }
+
   // Game end countdown timer
   useEffect(() => {
     if (gameEndData && gameEndCountdown > 0) {
@@ -211,6 +252,14 @@ function App() {
 
   const handleResetCancel = () => {
     setShowResetModal(false)
+  }
+
+  // Admin mode - show admin login or panel
+  if (isAdminMode) {
+    if (!isAdminAuthenticated) {
+      return <AdminLogin onLogin={handleAdminLogin} error={adminLoginError} />
+    }
+    return <AdminPanel password={adminPassword} onLogout={handleAdminLogout} />
   }
 
   // Show login screen if not authenticated
