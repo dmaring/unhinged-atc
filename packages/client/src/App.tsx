@@ -25,6 +25,7 @@ import { MobileTutorial } from './components/MobileTutorial'
 import { QuickActionBar } from './components/QuickActionBar'
 import { OrientationProvider, useOrientation } from './contexts/OrientationProvider'
 import { GameEndData, CHAOS_ABILITIES } from 'shared'
+import { trackUserLogin, trackGameEnded, trackCrash, trackPageView } from './utils/analytics'
 
 // Separate game content component to use orientation hook
 function GameContent() {
@@ -59,7 +60,11 @@ function GameContent() {
   // Check for admin route on mount and hash change
   useEffect(() => {
     const checkAdminRoute = () => {
-      setIsAdminMode(window.location.hash === '#/admin')
+      const isAdmin = window.location.hash === '#/admin'
+      setIsAdminMode(isAdmin)
+
+      // Track page view for analytics
+      trackPageView(window.location.hash || '/')
     }
 
     checkAdminRoute()
@@ -142,6 +147,19 @@ function GameContent() {
     onGameEnded: (data: GameEndData) => {
       setGameEndData(data)
       setGameEndCountdown(5)
+
+      // Track game ended event with custom dimensions
+      if (gameState) {
+        trackGameEnded({
+          reason: data.reason,
+          finalScore: data.finalScore,
+          planesCleared: data.planesCleared,
+          crashCount: data.crashCount,
+          duration: data.gameDuration,
+          roomId: gameState.roomId,
+          controllerCount: Object.keys(gameState.controllers).length,
+        })
+      }
     },
     onGameRestarting: (_data: { message: string }) => {
       // Game is restarting - keep authentication, auto-rejoin queue
@@ -177,6 +195,30 @@ function GameContent() {
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
   const setSelectedAircraft = useGameStore((state) => state.setSelectedAircraft)
 
+  // Track crash events when they occur
+  useEffect(() => {
+    if (!gameState) return
+
+    const crashEvents = gameState.recentEvents.filter(
+      (event) => event.type === 'crash' || event.type === 'collision'
+    )
+
+    // Track the most recent crash event (if any)
+    if (crashEvents.length > 0) {
+      const latestCrash = crashEvents[0]
+      // Use event ID to prevent tracking same crash multiple times
+      const crashKey = `tracked_crash_${latestCrash.id}`
+      if (!sessionStorage.getItem(crashKey)) {
+        trackCrash({
+          aircraftCount: latestCrash.aircraftIds.length,
+          roomId: gameState.roomId,
+          controllerCount: Object.keys(gameState.controllers).length,
+        })
+        sessionStorage.setItem(crashKey, 'true')
+      }
+    }
+  }, [gameState?.recentEvents, gameState?.roomId, gameState?.controllers])
+
   // Convert aircraft object to array
   const aircraftArray = gameState ? Object.values(gameState.aircraft) : []
 
@@ -207,6 +249,9 @@ function GameContent() {
     setEmail(newEmail)
     setLoginError(null)
     setIsAuthenticated(true)
+
+    // Track login event
+    trackUserLogin(newUsername)
   }
 
   // Admin login handler

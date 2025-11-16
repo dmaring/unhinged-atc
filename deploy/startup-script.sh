@@ -60,6 +60,9 @@ cd packages/client
 cat > .env.production <<EOF
 VITE_WS_URL=wss://${DOMAIN}
 VITE_API_URL=https://${DOMAIN}
+
+# Google Analytics 4 Measurement ID
+VITE_GA_MEASUREMENT_ID=G-E1253L4R2Y
 EOF
 pnpm build
 cd ../..

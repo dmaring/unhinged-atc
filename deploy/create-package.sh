@@ -96,6 +96,7 @@ cd packages/client
 cat > .env.production <<EOF
 VITE_WS_URL=wss://DOMAIN_PLACEHOLDER
 VITE_API_URL=https://DOMAIN_PLACEHOLDER
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 EOF
 
 pnpm build
