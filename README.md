@@ -18,7 +18,6 @@ Join the chaos right now - no installation, no training, no adult supervision re
 - **Aircraft Physics**: Realistic movement with 15x time scale and graduated difficulty progression
 - **Control Systems**: Point-and-click selection, keyboard controls (arrow keys, Tab), precise input panels
 - **Collision Detection**: Proximity warnings, near-miss detection, crash animation with 2-second display
-- **Landing System**: Automatic approach detection, landing criteria validation, scoring, and go-arounds
 - **Fuel Management**: Realistic consumption with low fuel warnings and emergency detection
 - **Chaos System**: 6 abilities (Reverse Course, Altitude Roulette, Speed Lottery, Gravity Well, Scatter Blast, Callsign Shuffle) with cooldowns
 - **User Authentication**: Login with screen name and email, profanity filtering
@@ -31,6 +30,7 @@ Join the chaos right now - no installation, no training, no adult supervision re
 
 ### 🚧 Planned Features
 - **AI Copilot**: Claude-powered assistant for command suggestions and warnings
+- **Landing System**: Automatic approach detection, landing criteria validation, scoring, and go-arounds
 - **Natural Language Commands**: Parse pilot-like input ("turn AAL123 left to 090")
 - **LLM Scenarios**: AI-generated emergencies and dynamic events
 - **Radio Chatter**: TTS pilot-controller communications
