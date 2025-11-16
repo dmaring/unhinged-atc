@@ -9,7 +9,7 @@ interface ChaosPanelProps {
 
 export function ChaosPanel({ chaosAbilities, onChaosCommand }: ChaosPanelProps) {
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   // Update cooldowns every second
   useEffect(() => {

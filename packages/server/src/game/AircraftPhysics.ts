@@ -2,8 +2,8 @@ import { Aircraft, AIRCRAFT_TYPES } from 'shared';
 
 export class AircraftPhysics {
   // Time scale multiplier - makes the game faster and more fun!
-  // 10x means aircraft move 10x faster than real-time
-  private timeScale = 10;
+  // 3x means aircraft move 3x faster than real-time
+  private timeScale = 3;
 
   /**
    * Set the time scale multiplier

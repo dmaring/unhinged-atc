@@ -152,7 +152,7 @@ function App() {
   const waypoints = gameState?.airspace?.waypoints || []
   const weather = gameState?.airspace?.weather || []
   const events = gameState?.recentEvents || []
-  const currentSpeed = gameState?.timeScale || 10
+  const currentSpeed = gameState?.timeScale || 3
   const chaosAbilities = gameState?.chaosAbilities || {}
 
   // Get selected aircraft object

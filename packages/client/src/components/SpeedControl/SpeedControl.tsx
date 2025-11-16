@@ -8,7 +8,7 @@ interface SpeedControlProps {
 
 export function SpeedControl({ currentSpeed, onSpeedChange }: SpeedControlProps) {
   const [speed, setSpeed] = useState(currentSpeed);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const handleSpeedChange = (newSpeed: number) => {
     setSpeed(newSpeed);

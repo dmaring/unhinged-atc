@@ -6,7 +6,7 @@ interface SpawnControlProps {
 }
 
 export function SpawnControl({ onSpawnAircraft }: SpawnControlProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <div className={`${styles.container} ${isCollapsed ? styles.collapsed : ''}`}>

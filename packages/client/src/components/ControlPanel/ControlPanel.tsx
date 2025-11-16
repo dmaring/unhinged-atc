@@ -78,8 +78,8 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
         {!isCollapsed && (
           <div className={styles.noSelection}>
             <p>SELECT AN AIRCRAFT</p>
-            <p style={{ fontSize: '12px', opacity: 0.7 }}>
-              Click on an aircraft on the radar to select it
+            <p style={{ fontSize: '13px', opacity: 0.85, marginTop: '8px' }}>
+              Click on a plane to control it
             </p>
           </div>
         )}

@@ -134,7 +134,7 @@ export class GameRoom {
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
-      timeScale: 10, // Default 10x speed
+      timeScale: 3, // Default 3x speed
       gameStartTime: Date.now(),
       gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
       lastSpawnTime: 0,
@@ -1248,7 +1248,7 @@ export class GameRoom {
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
-      timeScale: 10,
+      timeScale: 3,
       gameStartTime: Date.now(),
       gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000),
       lastSpawnTime: 0,
@@ -1310,7 +1310,7 @@ export class GameRoom {
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
-      timeScale: 10, // Default 10x speed
+      timeScale: 3, // Default 3x speed
       gameStartTime: Date.now(),
       gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
       lastSpawnTime: 0,
@@ -1420,7 +1420,7 @@ export class GameRoom {
       recentEvents: [],
       gameTime: 0,
       isPaused: false,
-      timeScale: 10, // Default 10x speed
+      timeScale: 3, // Default 3x speed
       gameStartTime: Date.now(),
       gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
       lastSpawnTime: 0,
