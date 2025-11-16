@@ -11,11 +11,13 @@ export type EventType =
   | "achievement"
   | "command_conflict"
   | "chaos_activated"
+  | "auto_chaos_activated"
   | "timed_spawn"
   | "crash_free_bonus"
   | "plane_cleared"
   | "player_entered"
-  | "player_left";
+  | "player_left"
+  | "game_ended";
 
 export type EventSeverity = "info" | "warning" | "critical" | "funny";
 
@@ -36,4 +38,14 @@ export interface Conflict {
   verticalDist: number; // Feet
   severity: "warning" | "near-miss" | "collision";
   time: number; // Seconds (0 = now, >0 = predicted future)
+}
+
+export interface GameEndData {
+  reason: "crash" | "time_limit";
+  finalScore: number;
+  planesCleared: number;
+  crashCount: number;
+  successfulLandings: number;
+  gameDuration: number; // seconds
+  funnyMessage: string;
 }

@@ -5,12 +5,15 @@ import {
   QueuedPlayer,
   AircraftCommand,
   GameEvent,
+  GameEndData,
   StateDelta,
   AIRCRAFT_TYPES,
   AircraftType,
   Conflict,
   POINTS,
   GAME_CONFIG,
+  SPAWN_DIFFICULTY_TIERS,
+  GAME_END_MESSAGES,
   ChaosCommand,
   ChaosType,
   CHAOS_ABILITIES,
@@ -51,6 +54,7 @@ export class GameRoom {
   private fuelEmergencies: Set<string> = new Set(); // Track aircraft with fuel emergencies
   private sentEventIds: Set<string> = new Set(); // Track event IDs that have been sent in deltas
   private previousWeatherCells: WeatherCell[] = [];
+  private gameEndData: GameEndData | null = null; // Track if game has ended and why
 
   // Player queue management
   private queuedPlayers: Map<string, QueuedPlayer> = new Map(); // Map of socketId -> QueuedPlayer
@@ -132,8 +136,10 @@ export class GameRoom {
       isPaused: false,
       timeScale: 10, // Default 10x speed
       gameStartTime: Date.now(),
+      gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
       lastSpawnTime: 0,
       nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
+      lastAutoChaosTime: 0,
       chaosAbilities: {},
     };
 
@@ -165,12 +171,16 @@ export class GameRoom {
     // Update game time
     this.gameState.gameTime += deltaTime;
 
-    // Timed aircraft spawning: every 60 seconds, spawn 1 plane per controller
-    if (this.gameState.gameTime >= this.gameState.lastSpawnTime + GAME_CONFIG.TIMED_SPAWN_INTERVAL) {
-      const controllerCount = Math.max(1, Object.keys(this.gameState.controllers).length);
+    // Staged difficulty progression for aircraft spawning
+    const currentTier = SPAWN_DIFFICULTY_TIERS.find(
+      tier => this.gameState.gameTime >= tier.minTime && this.gameState.gameTime < tier.maxTime
+    ) || SPAWN_DIFFICULTY_TIERS[SPAWN_DIFFICULTY_TIERS.length - 1]; // Default to last tier if beyond max time
+
+    if (this.gameState.gameTime >= this.gameState.lastSpawnTime + currentTier.spawnInterval) {
       const newAircraft: Aircraft[] = [];
 
-      for (let i = 0; i < controllerCount; i++) {
+      // Spawn based on current tier's planes per spawn (not controller count)
+      for (let i = 0; i < currentTier.planesPerSpawn; i++) {
         this.spawnRandomAircraft();
         const latestAircraftId = `aircraft-${this.aircraftCounter}`;
         newAircraft.push(this.gameState.aircraft[latestAircraftId]);
@@ -179,10 +189,11 @@ export class GameRoom {
       this.gameState.lastSpawnTime = this.gameState.gameTime;
       delta.newAircraft = newAircraft;
 
-      // Announce timed spawn
-      const message = controllerCount === 1
-        ? `📡 New aircraft entering the chaos!`
-        : `📡 ${controllerCount} new aircraft entering the chaos!`;
+      // Announce timed spawn with difficulty tier info
+      const tierNumber = SPAWN_DIFFICULTY_TIERS.indexOf(currentTier) + 1;
+      const message = currentTier.planesPerSpawn === 1
+        ? `📡 New aircraft entering the chaos! [Tier ${tierNumber}]`
+        : `📡 ${currentTier.planesPerSpawn} new aircraft entering the chaos! [Tier ${tierNumber}]`;
 
       this.addEvent({
         id: randomBytes(8).toString('hex'),
@@ -206,6 +217,42 @@ export class GameRoom {
         aircraftIds: [],
         message: `🎉 CRASH-FREE BONUS: +${POINTS.crashFreeBonus} points! No crashes for 3 minutes!`,
         severity: 'info',
+      });
+    }
+
+    // Auto chaos mode: randomly trigger chaos abilities every 30-45 seconds
+    const timeSinceLastChaos = this.gameState.gameTime - this.gameState.lastAutoChaosTime;
+    const nextChaosInterval = GAME_CONFIG.AUTO_CHAOS_INTERVAL_MIN +
+      Math.random() * (GAME_CONFIG.AUTO_CHAOS_INTERVAL_MAX - GAME_CONFIG.AUTO_CHAOS_INTERVAL_MIN);
+
+    if (timeSinceLastChaos >= nextChaosInterval) {
+      // Select random chaos ability
+      const chaosTypes = Object.keys(CHAOS_ABILITIES) as ChaosType[];
+      const randomChaosType = chaosTypes[Math.floor(Math.random() * chaosTypes.length)];
+
+      // Apply the chaos effect
+      this.chaosProcessor.applyChaos(
+        randomChaosType,
+        this.gameState.aircraft,
+        this.gameState.airspace.bounds
+      );
+
+      // Update chaos ability state (for tracking, but not enforcing cooldowns for auto chaos)
+      this.gameState.chaosAbilities[randomChaosType].lastUsed = Date.now();
+      this.gameState.chaosAbilities[randomChaosType].usageCount += 1;
+
+      // Update last auto chaos time
+      this.gameState.lastAutoChaosTime = this.gameState.gameTime;
+
+      // Add auto chaos event
+      const chaosConfig = CHAOS_ABILITIES[randomChaosType];
+      this.addEvent({
+        id: randomBytes(8).toString('hex'),
+        type: 'auto_chaos_activated',
+        timestamp: Date.now(),
+        aircraftIds: Object.keys(this.gameState.aircraft),
+        message: `🌪️ AUTO CHAOS: ${chaosConfig.name} - ${chaosConfig.description}`,
+        severity: 'funny',
       });
     }
 
@@ -272,6 +319,7 @@ export class GameRoom {
 
     // Check for crashes (horizontal distance only, ignores altitude)
     const crashes = this.collisionDetector.detectCrashes(this.gameState.aircraft);
+    let gameEndedDueToCrash = false;
 
     if (crashes.length > 0) {
       const currentTime = Date.now();
@@ -283,6 +331,15 @@ export class GameRoom {
       crashes.forEach(({ aircraft1, aircraft2 }) => {
         this.handleCrash(aircraft1, aircraft2);
       });
+
+      // Game ends immediately on crash
+      gameEndedDueToCrash = true;
+    }
+
+    // Check for game end conditions (crash or time limit)
+    if (gameEndedDueToCrash || (this.gameState.gameEndTime && Date.now() >= this.gameState.gameEndTime)) {
+      const reason: "crash" | "time_limit" = gameEndedDueToCrash ? "crash" : "time_limit";
+      this.endGame(reason);
     }
 
     // Remove crashed aircraft after animation duration
@@ -383,6 +440,54 @@ export class GameRoom {
     }
 
     return delta;
+  }
+
+  /**
+   * End the game with the specified reason
+   */
+  private endGame(reason: "crash" | "time_limit"): void {
+    // Don't end game twice
+    if (this.gameEndData) return;
+
+    // Select random funny message
+    const funnyMessage = GAME_END_MESSAGES[Math.floor(Math.random() * GAME_END_MESSAGES.length)];
+
+    // Create game end data
+    this.gameEndData = {
+      reason,
+      finalScore: this.gameState.score,
+      planesCleared: this.gameState.planesCleared,
+      crashCount: this.gameState.crashCount,
+      successfulLandings: this.gameState.successfulLandings,
+      gameDuration: this.gameState.gameTime,
+      funnyMessage,
+    };
+
+    // Add game end event
+    this.addEvent({
+      id: randomBytes(8).toString('hex'),
+      type: 'game_ended',
+      timestamp: Date.now(),
+      aircraftIds: [],
+      message: reason === 'crash'
+        ? `💥 GAME OVER - Crash detected! ${funnyMessage}`
+        : `⏰ TIME'S UP! ${funnyMessage}`,
+      severity: 'critical',
+    });
+  }
+
+  /**
+   * Check if the game has ended
+   */
+  hasGameEnded(): boolean {
+    return this.gameEndData !== null;
+  }
+
+  /**
+   * Get the game end data (null if game hasn't ended)
+   */
+  getGameEndData(): GameEndData | null {
+    return this.gameEndData;
   }
 
   /**
@@ -551,6 +656,14 @@ export class GameRoom {
     return Array.from(this.queuedPlayers.values()).sort(
       (a, b) => a.joinedQueueAt - b.joinedQueueAt
     );
+  }
+
+  /**
+   * Get the next queued player (FIFO)
+   */
+  getNextQueuedPlayer(): QueuedPlayer | null {
+    const queuedPlayers = this.getQueuedPlayers();
+    return queuedPlayers.length > 0 ? queuedPlayers[0] : null;
   }
 
   /**
@@ -1097,6 +1210,68 @@ export class GameRoom {
   }
 
   /**
+   * Reset the game state completely (for game end restart)
+   * Clears all aircraft, controllers, resets scores, and spawns new aircraft
+   */
+  resetGameState(): void {
+    const roomId = this.gameState.roomId;
+
+    console.log(`[GameRoom ${roomId}] Resetting game state for restart...`);
+
+    // Clear tracking sets
+    this.fuelWarnings.clear();
+    this.fuelEmergencies.clear();
+    this.sentEventIds.clear();
+    this.previousWeatherCells = [];
+    this.gameEndData = null; // Clear game end data
+
+    // Clear active player tracking
+    this.activePlayerIds.clear();
+
+    // Reset counters
+    this.aircraftCounter = 0;
+    this.lastSpawnTime = 0;
+
+    // Reinitialize game state with NO controllers
+    this.gameState = {
+      roomId,
+      createdAt: Date.now(),
+      aircraft: {},
+      airspace: this.gameState.airspace, // Preserve airspace definition
+      controllers: {}, // Clear all controllers
+      score: 0,
+      successfulLandings: 0,
+      nearMisses: 0,
+      collisions: 0,
+      planesCleared: 0,
+      crashCount: 0,
+      recentEvents: [],
+      gameTime: 0,
+      isPaused: false,
+      timeScale: 10, // Default 10x speed
+      gameStartTime: Date.now(),
+      gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
+      lastSpawnTime: 0,
+      nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
+      lastAutoChaosTime: 0,
+      chaosAbilities: {},
+    };
+
+    // Initialize chaos abilities cooldowns
+    Object.keys(CHAOS_ABILITIES).forEach((chaosType) => {
+      this.gameState.chaosAbilities[chaosType] = {
+        lastUsed: 0,
+        usageCount: 0,
+      };
+    });
+
+    // Spawn initial aircraft
+    this.spawnInitialAircraft();
+
+    console.log(`[GameRoom ${roomId}] Game state reset complete. Ready for new players.`);
+  }
+
+  /**
    * Reset the game to initial state (admin function)
    * Clears all aircraft, resets scores, and spawns new aircraft
    * Preserves the room and connected controllers
@@ -1185,8 +1360,10 @@ export class GameRoom {
       isPaused: false,
       timeScale: 10, // Default 10x speed
       gameStartTime: Date.now(),
+      gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000), // 5 minutes from now
       lastSpawnTime: 0,
       nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
+      lastAutoChaosTime: 0,
       chaosAbilities: {},
     };
 

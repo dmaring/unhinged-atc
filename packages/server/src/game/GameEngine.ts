@@ -1,12 +1,13 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { GameRoom } from './GameRoom.js';
-import { GAME_CONFIG } from 'shared';
+import { GAME_CONFIG, GameEndData } from 'shared';
 
 export class GameEngine {
   private rooms: Map<string, GameRoom> = new Map();
   private io: SocketIOServer;
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private lastUpdateTime: number = Date.now();
+  private gameEndHandlers: Map<string, NodeJS.Timeout> = new Map(); // Track scheduled game restarts
 
   constructor(io: SocketIOServer) {
     this.io = io;
@@ -63,6 +64,25 @@ export class GameEngine {
       // Always emit delta (clients can decide if they need to act on it)
       this.io.to(roomId).emit('state_update', delta);
 
+      // Check if game has ended
+      if (room.hasGameEnded() && !this.gameEndHandlers.has(roomId)) {
+        const gameEndData = room.getGameEndData();
+        if (gameEndData) {
+          // Broadcast game end to all players
+          this.io.to(roomId).emit('game_ended', gameEndData);
+
+          console.log(`[GameEngine] Game ended in room ${roomId}: ${gameEndData.reason}`);
+
+          // Schedule game restart after 5 seconds
+          const restartTimeout = setTimeout(() => {
+            this.handleGameRestart(roomId);
+            this.gameEndHandlers.delete(roomId);
+          }, GAME_CONFIG.GAME_END_DISPLAY_DURATION);
+
+          this.gameEndHandlers.set(roomId, restartTimeout);
+        }
+      }
+
       // Broadcast new events - DISABLED: events are already in delta.newEvents
       // Emitting separately was causing duplicates on the client side
       // if (delta.newEvents && delta.newEvents.length > 0) {
@@ -71,6 +91,67 @@ export class GameEngine {
       //   });
       // }
     });
+  }
+
+  /**
+   * Handle game restart - kick all players to login and promote from queue
+   */
+  private handleGameRestart(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    console.log(`[GameEngine] Restarting game in room ${roomId}`);
+
+    // Get all connected sockets in this room
+    const socketsInRoom = this.io.sockets.adapter.rooms.get(roomId);
+
+    if (socketsInRoom) {
+      // Kick all players back to login
+      socketsInRoom.forEach((socketId) => {
+        const socket = this.io.sockets.sockets.get(socketId);
+        if (socket) {
+          socket.emit('return_to_login', { message: 'Game ended. Please rejoin!' });
+          socket.leave(roomId);
+        }
+      });
+    }
+
+    // Reset the room (this will clear controllers and reset game state)
+    room.resetGameState();
+
+    // Promote queued players to fill the new game
+    const maxPlayers = GAME_CONFIG.MAX_CONTROLLERS_PER_ROOM;
+    for (let i = 0; i < maxPlayers; i++) {
+      const queuedPlayer = room.getNextQueuedPlayer();
+      if (!queuedPlayer) break;
+
+      // Get the socket
+      const socket = this.io.sockets.sockets.get(queuedPlayer.socketId);
+      if (socket) {
+        // Join the room
+        socket.join(roomId);
+
+        // Add as controller
+        const controller = room.addController(
+          queuedPlayer.socketId,
+          queuedPlayer.username,
+          queuedPlayer.email
+        );
+
+        // Send game state to newly promoted player
+        socket.emit('promoted_from_queue', {
+          gameState: room.getGameState(),
+          controller,
+        });
+
+        console.log(`[GameEngine] Promoted ${queuedPlayer.username} from queue in room ${roomId}`);
+      }
+
+      // Remove from queue
+      room.removeFromQueue(queuedPlayer.socketId);
+    }
+
+    console.log(`[GameEngine] Game restarted in room ${roomId}`);
   }
 
   /**

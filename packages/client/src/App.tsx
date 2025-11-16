@@ -14,6 +14,9 @@ import { ResetConfirmationModal } from './components/ResetConfirmationModal'
 import { LoginScreen } from './components/LoginScreen'
 import { QueueScreen } from './components/QueueScreen'
 import { GameFullScreen } from './components/GameFullScreen'
+import { GameEndModal } from './components/GameEndModal'
+import { ChaosAlert } from './components/ChaosAlert'
+import { GameEndData } from 'shared'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -28,6 +31,14 @@ function App() {
   const [totalInQueue, setTotalInQueue] = useState<number | null>(null)
   const [activePlayerCount, setActivePlayerCount] = useState<number | null>(null)
   const [gameFullMessage, setGameFullMessage] = useState<string | null>(null)
+
+  // Game end state
+  const [gameEndData, setGameEndData] = useState<GameEndData | null>(null)
+  const [gameEndCountdown, setGameEndCountdown] = useState(5)
+
+  // Chaos alert state
+  const [chaosAlertName, setChaosAlertName] = useState<string | null>(null)
+  const [chaosAlertDescription, setChaosAlertDescription] = useState<string | null>(null)
 
   // Always call hook, but only enable WebSocket after authentication
   const { socket, isConnected, connectionError } = useWebSocket(isAuthenticated)
@@ -86,6 +97,22 @@ function App() {
         severity: 'info'
       })
     },
+    onGameEnded: (data: GameEndData) => {
+      setGameEndData(data)
+      setGameEndCountdown(5)
+    },
+    onReturnToLogin: (data: { message: string }) => {
+      // Return to login screen
+      setIsAuthenticated(false)
+      setGameEndData(null)
+      setGameEndCountdown(5)
+      setIsInQueue(false)
+      setQueuePosition(null)
+    },
+    onAutoChaosActivated: (data: { chaosName: string; chaosDescription: string }) => {
+      setChaosAlertName(data.chaosName)
+      setChaosAlertDescription(data.chaosDescription)
+    },
   }), [addEvent])
 
   const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame } = useGameSync(
@@ -132,6 +159,17 @@ function App() {
     setLoginError(null)
     setIsAuthenticated(true)
   }
+
+  // Game end countdown timer
+  useEffect(() => {
+    if (gameEndData && gameEndCountdown > 0) {
+      const timer = setInterval(() => {
+        setGameEndCountdown((prev) => prev - 1)
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [gameEndData, gameEndCountdown])
 
   // Admin reset keyboard shortcut: Ctrl+Shift+Alt+R (Windows/Linux) or Cmd+Shift+Alt+R (Mac)
   useEffect(() => {
@@ -245,6 +283,14 @@ function App() {
         isOpen={showResetModal}
         onConfirm={handleResetConfirm}
         onCancel={handleResetCancel}
+      />
+      <GameEndModal
+        gameEndData={gameEndData}
+        countdown={gameEndCountdown}
+      />
+      <ChaosAlert
+        chaosName={chaosAlertName}
+        chaosDescription={chaosAlertDescription}
       />
     </div>
   )

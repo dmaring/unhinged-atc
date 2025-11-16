@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Socket } from 'socket.io-client';
-import { GameState, StateDelta, Controller, ChaosType } from 'shared';
+import { GameState, StateDelta, Controller, ChaosType, GameEndData } from 'shared';
 import { useGameStore } from '../stores/gameStore';
 
 export interface QueueCallbacks {
@@ -10,6 +10,9 @@ export interface QueueCallbacks {
   onGameFull?: (data: { message: string }) => void;
   onPlayerEnteredGame?: (data: { username: string; playerId: string }) => void;
   onPlayerLeftGame?: (data: { username: string; playerId: string }) => void;
+  onGameEnded?: (data: GameEndData) => void;
+  onReturnToLogin?: (data: { message: string }) => void;
+  onAutoChaosActivated?: (data: { chaosName: string; chaosDescription: string }) => void;
 }
 
 export function useGameSync(
@@ -67,6 +70,36 @@ export function useGameSync(
       // Add events
       delta.newEvents?.forEach((event) => {
         addEvent(event);
+
+        // Handle auto chaos activation for UI alert
+        if (event.type === 'auto_chaos_activated') {
+          // Extract chaos type from the event message
+          const chaosNames: Record<string, string> = {
+            'Reverse Course': 'Reverse Course',
+            'Altitude Roulette': 'Altitude Roulette',
+            'Speed Lottery': 'Speed Lottery',
+            'Gravity Well': 'Gravity Well',
+            'Scatter Blast': 'Scatter Blast',
+            'Callsign Shuffle': 'Callsign Shuffle',
+          };
+          const chaosDescriptions: Record<string, string> = {
+            'Reverse Course': 'Flip all aircraft headings 180°',
+            'Altitude Roulette': 'Randomize all aircraft altitudes ±5000ft',
+            'Speed Lottery': 'Random speed changes to all aircraft',
+            'Gravity Well': 'Pull all aircraft toward center',
+            'Scatter Blast': 'Push all aircraft away from center',
+            'Callsign Shuffle': 'Swap all aircraft callsigns randomly',
+          };
+          // Parse chaos name from message (format: "🌪️ AUTO CHAOS: Reverse Course - description")
+          const match = event.message.match(/AUTO CHAOS: (.*?) -/);
+          if (match) {
+            const chaosName = match[1];
+            queueCallbacks?.onAutoChaosActivated?.({
+              chaosName,
+              chaosDescription: chaosDescriptions[chaosName] || '',
+            });
+          }
+        }
       });
 
       // Update controller
@@ -195,6 +228,42 @@ export function useGameSync(
       queueCallbacks?.onPlayerLeftGame?.(data);
     };
 
+    const onGameEnded = (data: GameEndData) => {
+      console.log('[GameSync] Game ended:', data);
+      queueCallbacks?.onGameEnded?.(data);
+    };
+
+    const onReturnToLogin = (data: { message: string }) => {
+      console.log('[GameSync] Returning to login:', data);
+      queueCallbacks?.onReturnToLogin?.(data);
+    };
+
+    const onAutoChaosActivated = (data: { chaosType: string }) => {
+      console.log('[GameSync] Auto chaos activated:', data);
+      // Find the chaos ability config to get name and description
+      const chaosTypes = ['reverse_course', 'altitude_roulette', 'speed_lottery', 'gravity_well', 'scatter_blast', 'callsign_shuffle'];
+      const chaosNames: Record<string, string> = {
+        reverse_course: 'Reverse Course',
+        altitude_roulette: 'Altitude Roulette',
+        speed_lottery: 'Speed Lottery',
+        gravity_well: 'Gravity Well',
+        scatter_blast: 'Scatter Blast',
+        callsign_shuffle: 'Callsign Shuffle',
+      };
+      const chaosDescriptions: Record<string, string> = {
+        reverse_course: 'Flip all aircraft headings 180°',
+        altitude_roulette: 'Randomize all aircraft altitudes ±5000ft',
+        speed_lottery: 'Random speed changes to all aircraft',
+        gravity_well: 'Pull all aircraft toward center',
+        scatter_blast: 'Push all aircraft away from center',
+        callsign_shuffle: 'Swap all aircraft callsigns randomly',
+      };
+      queueCallbacks?.onAutoChaosActivated?.({
+        chaosName: chaosNames[data.chaosType] || data.chaosType,
+        chaosDescription: chaosDescriptions[data.chaosType] || '',
+      });
+    };
+
     // Register queue event listeners
     socket.on('queue_joined', onQueueJoined);
     socket.on('queue_position_updated', onQueuePositionUpdated);
@@ -202,6 +271,8 @@ export function useGameSync(
     socket.on('game_full', onGameFull);
     socket.on('player_entered_game', onPlayerEnteredGame);
     socket.on('player_left_game', onPlayerLeftGame);
+    socket.on('game_ended', onGameEnded);
+    socket.on('return_to_login', onReturnToLogin);
 
     // Cleanup
     return () => {
@@ -222,6 +293,8 @@ export function useGameSync(
       socket.off('game_full', onGameFull);
       socket.off('player_entered_game', onPlayerEnteredGame);
       socket.off('player_left_game', onPlayerLeftGame);
+      socket.off('game_ended', onGameEnded);
+      socket.off('return_to_login', onReturnToLogin);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, username, email, onJoinError]);

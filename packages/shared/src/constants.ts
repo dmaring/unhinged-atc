@@ -48,6 +48,10 @@ export const GAME_CONFIG = {
   SCENARIO_INTERVAL_MIN: 120000, // 2 minutes
   SCENARIO_INTERVAL_MAX: 300000, // 5 minutes
   INITIAL_AIRCRAFT_COUNT: 3, // Number of aircraft at game start
+  GAME_DURATION: 300, // seconds - 5 minutes per game
+  AUTO_CHAOS_INTERVAL_MIN: 30, // seconds - minimum time between auto chaos
+  AUTO_CHAOS_INTERVAL_MAX: 45, // seconds - maximum time between auto chaos
+  GAME_END_DISPLAY_DURATION: 5000, // ms - how long to show game end screen
 } as const;
 
 export const RADAR_CONFIG = {
@@ -90,3 +94,35 @@ export const CHAOS_ABILITIES = {
     cooldownDuration: 10000, // 10 seconds
   },
 } as const;
+
+// Difficulty tiers for spawn progression (staged escalation)
+export const SPAWN_DIFFICULTY_TIERS = [
+  { minTime: 0, maxTime: 60, spawnInterval: 60, planesPerSpawn: 1 },    // Tier 1: 0-1 min
+  { minTime: 60, maxTime: 120, spawnInterval: 40, planesPerSpawn: 2 },  // Tier 2: 1-2 min
+  { minTime: 120, maxTime: 180, spawnInterval: 25, planesPerSpawn: 2 }, // Tier 3: 2-3 min
+  { minTime: 180, maxTime: 300, spawnInterval: 15, planesPerSpawn: 3 }, // Tier 4: 3-5 min
+] as const;
+
+// Funny messages displayed when game ends
+export const GAME_END_MESSAGES = [
+  "You turned the sky into bumper cars!",
+  "The FAA would like a word with you...",
+  "At least nobody was hurt... right?",
+  "Maybe stick to Microsoft Flight Simulator?",
+  "NTSB investigators are en route to your location",
+  "That's one way to clear the skies!",
+  "Your pilot license has been revoked",
+  "Well, that escalated quickly",
+  "The insurance companies are NOT happy",
+  "Congratulations on reinventing gravity!",
+  "Physics wins again!",
+  "Houston, we had a problem... several actually",
+  "That was certainly... creative",
+  "The good news: you set a new record!",
+  "Air traffic control speedrun: FAILED",
+  "Maybe those planes should've just walked?",
+  "Your Yelp rating: ⭐ (1/5 stars)",
+  "Next time, try NOT playing chicken with 747s",
+  "Achievement unlocked: Cleared the airspace... permanently",
+  "The sky is falling! ...literally",
+] as const;

@@ -86,8 +86,10 @@ export interface GameState {
   isPaused: boolean;
   timeScale: number; // Speed multiplier (1x-30x)
   gameStartTime: number; // Timestamp when game started
+  gameEndTime: number | null; // Timestamp when game should end (gameStartTime + 5 minutes)
   lastSpawnTime: number; // Last timed aircraft spawn (in gameTime seconds)
   nextBonusAt: number; // Next crash-free bonus time (in gameTime seconds)
+  lastAutoChaosTime: number; // Last auto chaos activation (in gameTime seconds)
 
   // Chaos system
   chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>;
