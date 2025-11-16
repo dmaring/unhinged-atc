@@ -2,6 +2,7 @@ import {
   Aircraft,
   GameState,
   Controller,
+  QueuedPlayer,
   AircraftCommand,
   GameEvent,
   StateDelta,
@@ -50,6 +51,10 @@ export class GameRoom {
   private fuelEmergencies: Set<string> = new Set(); // Track aircraft with fuel emergencies
   private sentEventIds: Set<string> = new Set(); // Track event IDs that have been sent in deltas
   private previousWeatherCells: WeatherCell[] = [];
+
+  // Player queue management
+  private queuedPlayers: Map<string, QueuedPlayer> = new Map(); // Map of socketId -> QueuedPlayer
+  private activePlayerIds: Set<string> = new Set(); // Track which players are active (not queued)
 
   constructor(roomId: string) {
     this.physics = new AircraftPhysics();
@@ -381,7 +386,7 @@ export class GameRoom {
   }
 
   /**
-   * Add a controller to the room
+   * Add a controller to the room (as active player)
    */
   addController(socketId: string, username: string, email: string): Controller {
     const controller: Controller = {
@@ -394,6 +399,7 @@ export class GameRoom {
     };
 
     this.gameState.controllers[socketId] = controller;
+    this.activePlayerIds.add(socketId); // Track as active player
 
     // Add event for controller joining
     this.addEvent({
@@ -419,6 +425,7 @@ export class GameRoom {
     if (!controller) return;
 
     delete this.gameState.controllers[socketId];
+    this.activePlayerIds.delete(socketId); // Remove from active players
 
     // Add event for controller leaving
     this.addEvent({
@@ -432,6 +439,118 @@ export class GameRoom {
     });
 
     console.log(`[GameRoom ${this.gameState.roomId}] Controller left: ${controller.username}`);
+  }
+
+  /**
+   * Get the number of active players (not including queued)
+   */
+  getActivePlayerCount(): number {
+    return this.activePlayerIds.size;
+  }
+
+  /**
+   * Check if a new player can join as active player
+   */
+  canAddPlayer(): boolean {
+    return this.getActivePlayerCount() < GAME_CONFIG.MAX_CONTROLLERS_PER_ROOM;
+  }
+
+  /**
+   * Check if a player can be added to queue
+   */
+  canAddToQueue(): boolean {
+    return this.queuedPlayers.size < GAME_CONFIG.MAX_QUEUE_SIZE;
+  }
+
+  /**
+   * Add a player to the queue
+   */
+  addToQueue(socketId: string, username: string, email: string): QueuedPlayer {
+    const queuedPlayer: QueuedPlayer = {
+      socketId,
+      username,
+      email,
+      joinedQueueAt: Date.now(),
+      position: this.queuedPlayers.size + 1, // Position is 1-indexed
+    };
+
+    this.queuedPlayers.set(socketId, queuedPlayer);
+    this.updateQueuePositions();
+
+    console.log(`[GameRoom ${this.gameState.roomId}] Player queued: ${username} (Position: ${queuedPlayer.position})`);
+
+    return queuedPlayer;
+  }
+
+  /**
+   * Remove a player from the queue
+   */
+  removeFromQueue(socketId: string): void {
+    const queuedPlayer = this.queuedPlayers.get(socketId);
+    if (!queuedPlayer) return;
+
+    this.queuedPlayers.delete(socketId);
+    this.updateQueuePositions();
+
+    console.log(`[GameRoom ${this.gameState.roomId}] Player removed from queue: ${queuedPlayer.username}`);
+  }
+
+  /**
+   * Promote the first player from queue to active player
+   * Returns the promoted player's info or null if queue is empty
+   */
+  promoteFromQueue(): QueuedPlayer | null {
+    if (this.queuedPlayers.size === 0) return null;
+
+    // Get all queued players sorted by joinedQueueAt (FIFO)
+    const queuedArray = Array.from(this.queuedPlayers.values()).sort(
+      (a, b) => a.joinedQueueAt - b.joinedQueueAt
+    );
+
+    const firstInQueue = queuedArray[0];
+    if (!firstInQueue) return null;
+
+    // Remove from queue
+    this.queuedPlayers.delete(firstInQueue.socketId);
+
+    // Update positions for remaining queued players
+    this.updateQueuePositions();
+
+    console.log(`[GameRoom ${this.gameState.roomId}] Promoting from queue: ${firstInQueue.username}`);
+
+    return firstInQueue;
+  }
+
+  /**
+   * Update queue positions for all queued players
+   */
+  private updateQueuePositions(): void {
+    // Get all queued players sorted by joinedQueueAt
+    const queuedArray = Array.from(this.queuedPlayers.values()).sort(
+      (a, b) => a.joinedQueueAt - b.joinedQueueAt
+    );
+
+    // Update positions
+    queuedArray.forEach((player, index) => {
+      player.position = index + 1; // 1-indexed
+    });
+  }
+
+  /**
+   * Get a player's position in queue
+   */
+  getQueuePosition(socketId: string): number | null {
+    const queuedPlayer = this.queuedPlayers.get(socketId);
+    return queuedPlayer ? queuedPlayer.position : null;
+  }
+
+  /**
+   * Get all queued players
+   */
+  getQueuedPlayers(): QueuedPlayer[] {
+    return Array.from(this.queuedPlayers.values()).sort(
+      (a, b) => a.joinedQueueAt - b.joinedQueueAt
+    );
   }
 
   /**

@@ -48,6 +48,14 @@ export interface Controller {
   score: number;
 }
 
+export interface QueuedPlayer {
+  socketId: string;
+  username: string;
+  email: string;
+  joinedQueueAt: number;
+  position: number;
+}
+
 export interface GameState {
   // Room info
   roomId: string;

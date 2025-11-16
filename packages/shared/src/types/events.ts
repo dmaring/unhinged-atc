@@ -13,7 +13,9 @@ export type EventType =
   | "chaos_activated"
   | "timed_spawn"
   | "crash_free_bonus"
-  | "plane_cleared";
+  | "plane_cleared"
+  | "player_entered"
+  | "player_left";
 
 export type EventSeverity = "info" | "warning" | "critical" | "funny";
 

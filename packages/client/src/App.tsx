@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import './App.css'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useGameSync } from './hooks/useGameSync'
@@ -12,6 +12,8 @@ import { ChaosPanel } from './components/ChaosPanel'
 import { NotificationPanel } from './components/NotificationPanel'
 import { ResetConfirmationModal } from './components/ResetConfirmationModal'
 import { LoginScreen } from './components/LoginScreen'
+import { QueueScreen } from './components/QueueScreen'
+import { GameFullScreen } from './components/GameFullScreen'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -20,8 +22,18 @@ function App() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [showResetModal, setShowResetModal] = useState(false)
 
+  // Queue state
+  const [isInQueue, setIsInQueue] = useState(false)
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
+  const [totalInQueue, setTotalInQueue] = useState<number | null>(null)
+  const [activePlayerCount, setActivePlayerCount] = useState<number | null>(null)
+  const [gameFullMessage, setGameFullMessage] = useState<string | null>(null)
+
   // Always call hook, but only enable WebSocket after authentication
   const { socket, isConnected, connectionError } = useWebSocket(isAuthenticated)
+
+  // Get addEvent from store (needed for queue callbacks)
+  const addEvent = useGameStore((state) => state.addEvent)
 
   // Memoized error handler to prevent infinite re-renders
   const handleJoinError = useCallback((error: string) => {
@@ -30,12 +42,59 @@ function App() {
     setIsAuthenticated(false)
   }, [])
 
+  // Queue callbacks
+  const queueCallbacks = useMemo(() => ({
+    onQueueJoined: (data: { position: number; totalInQueue: number; activePlayerCount: number }) => {
+      setIsInQueue(true)
+      setQueuePosition(data.position)
+      setTotalInQueue(data.totalInQueue)
+      setActivePlayerCount(data.activePlayerCount)
+      setGameFullMessage(null)
+    },
+    onQueuePositionUpdated: (data: { position: number }) => {
+      setQueuePosition(data.position)
+    },
+    onPromotedFromQueue: () => {
+      setIsInQueue(false)
+      setQueuePosition(null)
+      setTotalInQueue(null)
+      setActivePlayerCount(null)
+    },
+    onGameFull: (data: { message: string }) => {
+      setGameFullMessage(data.message)
+      setIsInQueue(false)
+    },
+    onPlayerEnteredGame: (data: { username: string; playerId: string }) => {
+      addEvent({
+        id: `player-entered-${data.playerId}-${Date.now()}`,
+        type: 'player_entered',
+        timestamp: Date.now(),
+        aircraftIds: [],
+        controllerId: data.playerId,
+        message: `Controller ${data.username} joined the airspace`,
+        severity: 'info'
+      })
+    },
+    onPlayerLeftGame: (data: { username: string; playerId: string }) => {
+      addEvent({
+        id: `player-left-${data.playerId}-${Date.now()}`,
+        type: 'player_left',
+        timestamp: Date.now(),
+        aircraftIds: [],
+        controllerId: data.playerId,
+        message: `Controller ${data.username} left the airspace`,
+        severity: 'info'
+      })
+    },
+  }), [addEvent])
+
   const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame } = useGameSync(
     socket,
     isConnected,
     username,
     email,
-    handleJoinError
+    handleJoinError,
+    queueCallbacks
   )
 
   const gameState = useGameStore((state) => state.gameState)
@@ -105,7 +164,32 @@ function App() {
     return <LoginScreen onLogin={handleLogin} error={loginError} />
   }
 
-  // Show game UI when authenticated
+  // Show game full screen if game is full
+  if (gameFullMessage) {
+    return (
+      <GameFullScreen
+        message={gameFullMessage}
+        activePlayerCount={activePlayerCount || 0}
+        onRetry={() => {
+          setGameFullMessage(null)
+          setIsAuthenticated(false)
+        }}
+      />
+    )
+  }
+
+  // Show queue screen if in queue
+  if (isInQueue && queuePosition !== null) {
+    return (
+      <QueueScreen
+        position={queuePosition}
+        totalInQueue={totalInQueue || 0}
+        activePlayerCount={activePlayerCount || 0}
+      />
+    )
+  }
+
+  // Show game UI when authenticated and in game
   return (
     <div className="app">
       <div className="header">

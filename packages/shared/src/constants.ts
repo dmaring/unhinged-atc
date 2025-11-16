@@ -39,7 +39,8 @@ export const GAME_CONFIG = {
   TICK_RATE: 60, // Server physics updates per second
   MAX_AIRCRAFT_TRAIL: 30, // Number of position points to keep
   MAX_RECENT_EVENTS: 20, // Number of events to keep in history
-  MAX_CONTROLLERS_PER_ROOM: 4,
+  MAX_CONTROLLERS_PER_ROOM: 5, // Maximum active players in game
+  MAX_QUEUE_SIZE: 20, // Maximum players waiting in queue
   MAX_COMMANDS_PER_MINUTE: 60,
   AIRCRAFT_SPAWN_INTERVAL: 30000, // ms (legacy - now using TIMED_SPAWN_INTERVAL)
   TIMED_SPAWN_INTERVAL: 60, // seconds - spawn 1 plane per player every 60s

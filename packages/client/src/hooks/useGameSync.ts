@@ -3,12 +3,22 @@ import { Socket } from 'socket.io-client';
 import { GameState, StateDelta, Controller, ChaosType } from 'shared';
 import { useGameStore } from '../stores/gameStore';
 
+export interface QueueCallbacks {
+  onQueueJoined?: (data: { position: number; totalInQueue: number; activePlayerCount: number }) => void;
+  onQueuePositionUpdated?: (data: { position: number }) => void;
+  onPromotedFromQueue?: () => void;
+  onGameFull?: (data: { message: string }) => void;
+  onPlayerEnteredGame?: (data: { username: string; playerId: string }) => void;
+  onPlayerLeftGame?: (data: { username: string; playerId: string }) => void;
+}
+
 export function useGameSync(
   socket: Socket | null,
   isConnected: boolean,
   username: string,
   email: string,
-  onJoinError?: (error: string) => void
+  onJoinError?: (error: string) => void,
+  queueCallbacks?: QueueCallbacks
 ) {
   const setGameState = useGameStore((state) => state.setGameState);
   const updateAircraft = useGameStore((state) => state.updateAircraft);
@@ -154,6 +164,45 @@ export function useGameSync(
     socket.on('game_reset', onGameReset);
     socket.on('join_error', handleJoinError);
 
+    // Queue event handlers
+    const onQueueJoined = (data: { position: number; totalInQueue: number; activePlayerCount: number }) => {
+      console.log('[GameSync] Queue joined:', data);
+      queueCallbacks?.onQueueJoined?.(data);
+    };
+
+    const onQueuePositionUpdated = (data: { position: number }) => {
+      console.log('[GameSync] Queue position updated:', data);
+      queueCallbacks?.onQueuePositionUpdated?.(data);
+    };
+
+    const onPromotedFromQueue = () => {
+      console.log('[GameSync] Promoted from queue');
+      queueCallbacks?.onPromotedFromQueue?.();
+    };
+
+    const onGameFull = (data: { message: string }) => {
+      console.log('[GameSync] Game full:', data);
+      queueCallbacks?.onGameFull?.(data);
+    };
+
+    const onPlayerEnteredGame = (data: { username: string; playerId: string }) => {
+      console.log('[GameSync] Player entered game:', data);
+      queueCallbacks?.onPlayerEnteredGame?.(data);
+    };
+
+    const onPlayerLeftGame = (data: { username: string; playerId: string }) => {
+      console.log('[GameSync] Player left game:', data);
+      queueCallbacks?.onPlayerLeftGame?.(data);
+    };
+
+    // Register queue event listeners
+    socket.on('queue_joined', onQueueJoined);
+    socket.on('queue_position_updated', onQueuePositionUpdated);
+    socket.on('promoted_from_queue', onPromotedFromQueue);
+    socket.on('game_full', onGameFull);
+    socket.on('player_entered_game', onPlayerEnteredGame);
+    socket.on('player_left_game', onPlayerLeftGame);
+
     // Cleanup
     return () => {
       socket.off('game_state', onGameState);
@@ -167,6 +216,12 @@ export function useGameSync(
       socket.off('chaos_failed', onChaosFailed);
       socket.off('game_reset', onGameReset);
       socket.off('join_error', handleJoinError);
+      socket.off('queue_joined', onQueueJoined);
+      socket.off('queue_position_updated', onQueuePositionUpdated);
+      socket.off('promoted_from_queue', onPromotedFromQueue);
+      socket.off('game_full', onGameFull);
+      socket.off('player_entered_game', onPlayerEnteredGame);
+      socket.off('player_left_game', onPlayerLeftGame);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, username, email, onJoinError]);

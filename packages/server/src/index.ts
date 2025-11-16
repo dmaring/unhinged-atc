@@ -112,28 +112,60 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     currentRoom = roomId;
 
-    // Add controller to room with email
-    const controller = room.addController(socket.id, username, email);
+    // Check if room has space for active player
+    if (room.canAddPlayer()) {
+      // Add controller to room as active player
+      const controller = room.addController(socket.id, username, email);
 
-    // Log the join event with email
-    console.log(`[Socket ${socket.id}] User joined - Username: ${username}, Email: ${email}, Room: ${roomId}`);
+      // Log the join event with email
+      console.log(`[Socket ${socket.id}] User joined - Username: ${username}, Email: ${email}, Room: ${roomId}`);
 
-    // Send initial game state
-    const gameState = room.getGameState();
-    socket.emit('game_state', gameState);
+      // Send initial game state
+      const gameState = room.getGameState();
+      socket.emit('game_state', gameState);
 
-    // Notify others (without email for privacy)
-    socket.to(roomId).emit('controller_update', {
-      type: 'joined',
-      controller: {
-        id: controller.id,
+      // Notify others that a player entered the game
+      socket.to(roomId).emit('player_entered_game', {
         username: controller.username,
-        joinedAt: controller.joinedAt,
-        commandsIssued: controller.commandsIssued,
-        score: controller.score,
-        // Email is intentionally omitted from broadcast
-      },
-    });
+        playerId: controller.id,
+      });
+
+      // Also send controller_update for backward compatibility
+      socket.to(roomId).emit('controller_update', {
+        type: 'joined',
+        controller: {
+          id: controller.id,
+          username: controller.username,
+          joinedAt: controller.joinedAt,
+          commandsIssued: controller.commandsIssued,
+          score: controller.score,
+          // Email is intentionally omitted from broadcast
+        },
+      });
+    } else if (room.canAddToQueue()) {
+      // Room is full, add to queue
+      const queuedPlayer = room.addToQueue(socket.id, username, email);
+
+      console.log(`[Socket ${socket.id}] User queued - Username: ${username}, Position: ${queuedPlayer.position}, Room: ${roomId}`);
+
+      // Send queue joined event
+      socket.emit('queue_joined', {
+        position: queuedPlayer.position,
+        totalInQueue: room.getQueuedPlayers().length,
+        activePlayerCount: room.getActivePlayerCount(),
+      });
+    } else {
+      // Both room and queue are full
+      console.log(`[Socket ${socket.id}] Game full - Username: ${username}, Room: ${roomId}`);
+
+      socket.emit('game_full', {
+        message: 'Game is full and queue is at capacity. Please try again later.',
+      });
+
+      // Leave the room since they can't join
+      socket.leave(roomId);
+      currentRoom = null;
+    }
   });
 
   // Handle aircraft command
@@ -299,16 +331,81 @@ io.on('connection', (socket) => {
       const room = gameEngine.getRoom(currentRoom);
       if (room) {
         const controller = room.getGameState().controllers[socket.id];
-        room.removeController(socket.id);
+        const queuedPlayer = room.getQueuePosition(socket.id);
 
-        // Notify others
-        io.to(currentRoom).emit('controller_update', {
-          type: 'left',
-          controller,
-        });
+        if (controller) {
+          // Active player disconnected
+          const username = controller.username;
+          room.removeController(socket.id);
 
-        // Delete room if empty
-        gameEngine.deleteRoomIfEmpty(currentRoom);
+          // Notify others that player left the game
+          io.to(currentRoom).emit('player_left_game', {
+            username,
+            playerId: socket.id,
+          });
+
+          // Also send controller_update for backward compatibility
+          io.to(currentRoom).emit('controller_update', {
+            type: 'left',
+            controller,
+          });
+
+          // Try to promote a queued player
+          const promotedPlayer = room.promoteFromQueue();
+          if (promotedPlayer) {
+            // Find the socket for the promoted player
+            const promotedSocket = io.sockets.sockets.get(promotedPlayer.socketId);
+            if (promotedSocket) {
+              // Add as active controller
+              const newController = room.addController(
+                promotedPlayer.socketId,
+                promotedPlayer.username,
+                promotedPlayer.email
+              );
+
+              // Notify the promoted player
+              promotedSocket.emit('promoted_from_queue', {});
+
+              // Send them the game state
+              const gameState = room.getGameState();
+              promotedSocket.emit('game_state', gameState);
+
+              // Notify everyone that new player entered
+              io.to(currentRoom).emit('player_entered_game', {
+                username: newController.username,
+                playerId: newController.id,
+              });
+
+              // Update queue positions for remaining queued players
+              const remainingQueue = room.getQueuedPlayers();
+              remainingQueue.forEach((qp) => {
+                const queuedSocket = io.sockets.sockets.get(qp.socketId);
+                if (queuedSocket) {
+                  queuedSocket.emit('queue_position_updated', {
+                    position: qp.position,
+                  });
+                }
+              });
+            }
+          }
+
+          // Delete room if empty
+          gameEngine.deleteRoomIfEmpty(currentRoom);
+        } else if (queuedPlayer !== null) {
+          // Queued player disconnected
+          room.removeFromQueue(socket.id);
+
+          // Update queue positions for remaining queued players
+          const remainingQueue = room.getQueuedPlayers();
+          remainingQueue.forEach((qp) => {
+            const queuedSocket = io.sockets.sockets.get(qp.socketId);
+            if (queuedSocket) {
+              queuedSocket.emit('queue_position_updated', {
+                position: qp.position,
+              });
+            }
+          });
+        }
       }
     }
   });

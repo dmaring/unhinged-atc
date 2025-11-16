@@ -1,0 +1,1 @@
+export { GameFullScreen } from './GameFullScreen';
