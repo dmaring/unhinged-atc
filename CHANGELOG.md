@@ -1,5 +1,113 @@
 # Changelog - Unhinged ATC
 
+## 2025-11-15 - Deployment Package Automation & Domain Configuration
+
+### Fixed
+- **Removed hardcoded domains** from deployment scripts
+  - `deploy/startup-script.sh` now fetches domain from instance metadata
+  - Replaced all `openatc.app` references with `$DOMAIN` variable
+  - Client `.env.production` generated dynamically based on domain
+  - Server CORS_ORIGIN configured from domain metadata
+
+- **Fixed deployment package workflow**
+  - Created `deploy/create-package.sh` to build and upload deployment packages
+  - Integrated package creation into `deploy/deploy.sh` (new step 7/13)
+  - Cloud Storage bucket creation automated with versioning enabled
+  - Previous deployment versions automatically backed up
+
+### Changed
+- **Instance metadata configuration**
+  - Instance templates now include `domain` metadata attribute
+  - Startup script fetches domain via `curl` from metadata server
+  - Removes dependency on hardcoded configuration values
+
+- **deploy.sh improvements**
+  - Renumbered steps from 12 to 13 total steps
+  - Added automatic deployment package creation (step 7)
+  - Package uploaded to `gs://PROJECT_ID-deploy/` bucket
+
+### Documentation
+- **Updated README.md** with production deployment section
+  - Removed outdated Vercel/Railway mentions
+  - Added comprehensive deployment documentation links
+  - Included cost estimates and feature list
+
+- **Updated CLAUDE.md** with deployment commands
+  - Added deployment procedures
+  - Environment setup documentation
+  - Troubleshooting common deployment issues
+  - Architecture overview
+
+- **Created CHANGELOG.md** documenting all deployment work
+
+## 2025-11-15 - Production Deployment Infrastructure
+
+### GCP Deployment with Enterprise Security
+- **Complete Deployment System**: Automated scripts for deploying to Google Cloud Platform
+  - `deploy/deploy.sh`: Main deployment orchestrator with Cloud Armor, Load Balancer, MIG
+  - `deploy/startup-script.sh`: VM initialization with Node.js, systemd service setup
+  - `deploy/cloud-armor.sh`: DDoS protection, WAF rules (XSS, SQLi, LFI, RCE blocking)
+  - `deploy/firewall-rules.sh`: Zero-trust VPC firewall configuration
+  - `deploy/monitoring.sh`: Cloud Monitoring alerts and uptime checks
+  - `deploy/deploy-client.sh`: React client deployment to Cloud Storage + CDN
+
+### Security Hardening
+- **Application Security** (`packages/server/src/index.ts`):
+  - Added `helmet` middleware for security headers (CSP, HSTS, X-Frame-Options)
+  - Express rate limiting: 100 HTTP requests/min per IP
+  - Socket.IO connection rate limiting: 10 connections/min per IP
+  - Improved CORS configuration with production domain validation
+
+- **Secret Management** (`packages/server/src/config/secrets.ts`):
+  - Google Cloud Secret Manager integration
+  - Secure API key storage (Anthropic, OpenAI)
+  - Fallback to environment variables for local development
+
+- **Cloud Armor WAF**:
+  - Layer 3/4/7 DDoS protection
+  - OWASP ModSecurity rules (XSS, SQLi, LFI, RCE)
+  - Rate-based IP banning (100 req/min → 10 min ban)
+  - Bot detection and blocking
+  - Geographic restrictions support
+
+### Infrastructure as Code
+- **Managed Instance Group**: Auto-scaling 1-5 VMs based on CPU utilization (60%)
+- **Load Balancer**: HTTPS/SSL termination with Google-managed certificates
+- **Session Affinity**: CLIENT_IP sticky sessions for WebSocket persistence
+- **Health Checks**: HTTP /health endpoint with auto-healing
+- **VPC Firewall**: Zero-trust rules (deny-all default, allow LB health checks, IAP SSH only)
+- **Identity-Aware Proxy**: Secure SSH access without public port 22 exposure
+
+### Monitoring & Alerting
+- **Cloud Monitoring Alerts**:
+  - High 4xx rate detection (DDoS attacks, > 1000/min)
+  - Backend unhealthy instances (5xx errors)
+  - High CPU usage (> 85% utilization)
+  - SSL certificate expiry warning (< 30 days)
+  - Cloud Armor security events (> 100 denials/min)
+- **Uptime Checks**: HTTPS /health endpoint monitoring every 60s
+- **Centralized Logging**: All logs forwarded to Cloud Logging
+
+### Documentation
+- **DEPLOYMENT.md**: Complete deployment guide with step-by-step instructions
+- **SECURITY_CHECKLIST.md**: Pre-launch security checklist and incident response procedures
+- **deploy/README.md**: Quick reference for deployment scripts
+
+### Dependencies Added
+- `helmet@^7.1.0`: HTTP security headers middleware
+- `express-rate-limit@^7.1.5`: API rate limiting
+- `@google-cloud/secret-manager@^5.0.1`: Secure secret storage
+
+### Production Configuration
+- **Client**: `.env.production` with WSS/HTTPS URLs for production
+- **Server**: Async startup with Secret Manager loading
+- **Systemd Service**: Auto-restart on failure, security hardening (PrivateTmp, ProtectSystem)
+
+### Cost Optimization
+- **Cloud CDN**: Aggressive caching for static assets (60-80% egress savings)
+- **Auto-scaling**: Scale to 1 instance during low traffic
+- **Estimated Costs**: $85-150/month (low traffic), $238/month (medium), $827+/month (high)
+
 ## 2025-11-14 - Initial Development Session
 
 ### Core Infrastructure

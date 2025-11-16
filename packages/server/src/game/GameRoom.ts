@@ -232,9 +232,8 @@ export class GameRoom {
 
       // Apply the chaos effect
       this.chaosProcessor.applyChaos(
-        randomChaosType,
         this.gameState.aircraft,
-        this.gameState.airspace.bounds
+        randomChaosType
       );
 
       // Update chaos ability state (for tracking, but not enforcing cooldowns for auto chaos)

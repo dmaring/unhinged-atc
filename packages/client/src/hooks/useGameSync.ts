@@ -74,14 +74,6 @@ export function useGameSync(
         // Handle auto chaos activation for UI alert
         if (event.type === 'auto_chaos_activated') {
           // Extract chaos type from the event message
-          const chaosNames: Record<string, string> = {
-            'Reverse Course': 'Reverse Course',
-            'Altitude Roulette': 'Altitude Roulette',
-            'Speed Lottery': 'Speed Lottery',
-            'Gravity Well': 'Gravity Well',
-            'Scatter Blast': 'Scatter Blast',
-            'Callsign Shuffle': 'Callsign Shuffle',
-          };
           const chaosDescriptions: Record<string, string> = {
             'Reverse Course': 'Flip all aircraft headings 180°',
             'Altitude Roulette': 'Randomize all aircraft altitudes ±5000ft',
@@ -236,32 +228,6 @@ export function useGameSync(
     const onReturnToLogin = (data: { message: string }) => {
       console.log('[GameSync] Returning to login:', data);
       queueCallbacks?.onReturnToLogin?.(data);
-    };
-
-    const onAutoChaosActivated = (data: { chaosType: string }) => {
-      console.log('[GameSync] Auto chaos activated:', data);
-      // Find the chaos ability config to get name and description
-      const chaosTypes = ['reverse_course', 'altitude_roulette', 'speed_lottery', 'gravity_well', 'scatter_blast', 'callsign_shuffle'];
-      const chaosNames: Record<string, string> = {
-        reverse_course: 'Reverse Course',
-        altitude_roulette: 'Altitude Roulette',
-        speed_lottery: 'Speed Lottery',
-        gravity_well: 'Gravity Well',
-        scatter_blast: 'Scatter Blast',
-        callsign_shuffle: 'Callsign Shuffle',
-      };
-      const chaosDescriptions: Record<string, string> = {
-        reverse_course: 'Flip all aircraft headings 180°',
-        altitude_roulette: 'Randomize all aircraft altitudes ±5000ft',
-        speed_lottery: 'Random speed changes to all aircraft',
-        gravity_well: 'Pull all aircraft toward center',
-        scatter_blast: 'Push all aircraft away from center',
-        callsign_shuffle: 'Swap all aircraft callsigns randomly',
-      };
-      queueCallbacks?.onAutoChaosActivated?.({
-        chaosName: chaosNames[data.chaosType] || data.chaosType,
-        chaosDescription: chaosDescriptions[data.chaosType] || '',
-      });
     };
 
     // Register queue event listeners

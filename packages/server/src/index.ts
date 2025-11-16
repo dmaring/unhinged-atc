@@ -5,8 +5,16 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { randomBytes } from 'crypto';
 import { Filter } from 'bad-words';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { GameEngine } from './game/GameEngine.js';
 import { AircraftCommand, ChaosCommand } from 'shared';
+import { loadSecrets } from './config/secrets.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -27,6 +35,33 @@ app.use(cors({
   credentials: true,
 }));
 
+// Security middleware - Helmet for HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "wss:", "ws:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Required for Vite HMR in dev
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Required for Socket.IO
+}));
+
+// Rate limiting for HTTP endpoints
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute per IP
+  message: 'Too many requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Skip health checks and stats from rate limiting
+  skip: (req) => req.path === '/health',
+});
+
+app.use('/api/', apiLimiter);
+app.use('/stats', apiLimiter);
+
 app.use(express.json());
 
 // Health check endpoint
@@ -40,13 +75,54 @@ app.get('/stats', (req, res) => {
   res.json(stats);
 });
 
+// Serve static files from client dist directory in production
+if (process.env.NODE_ENV === 'production') {
+  const clientDistPath = path.join(__dirname, '../../client/dist');
+  app.use(express.static(clientDistPath));
+
+  // SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    // Skip Socket.IO and API routes
+    if (!req.path.startsWith('/socket.io') && !req.path.startsWith('/health') && !req.path.startsWith('/stats')) {
+      res.sendFile(path.join(clientDistPath, 'index.html'));
+    }
+  });
+}
+
 // Create Socket.IO server
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: CORS_ORIGIN,
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  transports: ['websocket', 'polling'], // Prefer WebSocket for better security
+});
+
+// Socket.IO connection rate limiting
+const connectionAttempts = new Map<string, { count: number; resetTime: number }>();
+
+io.use((socket, next) => {
+  const ip = socket.handshake.address;
+  const now = Date.now();
+
+  const attempt = connectionAttempts.get(ip) || { count: 0, resetTime: now + 60000 };
+
+  if (now > attempt.resetTime) {
+    attempt.count = 0;
+    attempt.resetTime = now + 60000;
+  }
+
+  attempt.count++;
+  connectionAttempts.set(ip, attempt);
+
+  // Allow 10 connection attempts per minute per IP
+  if (attempt.count > 10) {
+    console.warn(`[Security] Too many connection attempts from ${ip}`);
+    return next(new Error('Too many connection attempts, please try again later'));
+  }
+
+  next();
 });
 
 // Create and start game engine
@@ -411,9 +487,15 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(`
+// Async startup function
+async function startServer() {
+  try {
+    // Load secrets from Secret Manager (production) or environment (development)
+    await loadSecrets();
+
+    // Start HTTP server
+    httpServer.listen(PORT, () => {
+      console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                    UNHINGED ATC SERVER                     ║
 ╠═══════════════════════════════════════════════════════════╣
@@ -421,9 +503,18 @@ httpServer.listen(PORT, () => {
 ║  Port: ${PORT.toString().padEnd(52)}║
 ║  CORS Origin: ${(Array.isArray(CORS_ORIGIN) ? CORS_ORIGIN.join(', ') : CORS_ORIGIN).padEnd(44)}║
 ║  Environment: ${(process.env.NODE_ENV || 'development').padEnd(44)}║
+║  Security: Helmet + Rate Limiting ENABLED                  ║
 ╚═══════════════════════════════════════════════════════════╝
-  `);
-});
+      `);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

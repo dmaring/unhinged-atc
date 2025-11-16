@@ -4,23 +4,40 @@
 
 A real-time multiplayer web application where multiple users simultaneously control the same airspace as air traffic controllers. Features retro CRT radar aesthetics, AI-powered scenarios, and gloriously chaotic multiplayer mayhem.
 
-## Current Status (2025-11-14)
+## 🎮 Try It Live (If You Dare)
+
+**[www.openatc.app](https://www.openatc.app)** - Where internet strangers collectively manage an airspace. What could possibly go wrong?
+
+Join the chaos right now - no installation, no training, no adult supervision required. Just you, some aircraft, and whoever else decided this was a good idea today.
+
+## Current Status (2025-11-16)
 
 ### ✅ Implemented
-- **Real-time Multiplayer**: WebSocket-based with 60 FPS server game loop
-- **Retro Radar Display**: Canvas-based with range rings, aircraft icons, trails, and compass
-- **Aircraft Physics**: Realistic movement with 15x time scale for fast-paced gameplay
-- **Control Panel**: Issue heading, altitude, and speed commands to selected aircraft
-- **Auto-spawn System**: Maintains 3-5 aircraft with random callsigns and varied flight paths
-- **Multiplayer Room Management**: Join/leave tracking with controller stats
+- **Real-time Multiplayer**: WebSocket-based with 60 FPS server game loop and queue system
+- **Retro Radar Display**: Canvas-based with range rings, aircraft icons, trails, compass, and waypoints
+- **Aircraft Physics**: Realistic movement with 15x time scale and graduated difficulty progression
+- **Control Systems**: Point-and-click selection, keyboard controls (arrow keys, Tab), precise input panels
+- **Collision Detection**: Proximity warnings, near-miss detection, crash animation with 2-second display
+- **Landing System**: Automatic approach detection, landing criteria validation, scoring, and go-arounds
+- **Fuel Management**: Realistic consumption with low fuel warnings and emergency detection
+- **Chaos System**: 6 abilities (Reverse Course, Altitude Roulette, Speed Lottery, Gravity Well, Scatter Blast, Callsign Shuffle) with cooldowns
+- **User Authentication**: Login with screen name and email, profanity filtering
+- **Queue Management**: Player queue when game full (max 4 controllers per room, max 8 in queue)
+- **Scoring System**: Comprehensive points for landings (+100), cleared aircraft (+100), penalties for crashes (-100), 3-minute crash-free bonus (+500)
+- **Game Mechanics**: Auto-spawning with difficulty tiers, auto-chaos every 30-45s, 5-minute game duration with time limit or crash end condition
+- **Notification System**: Terminal-style message panel with 50+ humorous messages, duplicate prevention, severity-based colors
+- **Visual Features**: Dynamic weather (clouds, storms, turbulence), airport/waypoint visualization, crash animations, CRT shader effects
+- **Production Ready**: GCP deployment with Cloud Armor, auto-scaling, monitoring, security hardening, secret management
 
 ### 🚧 Planned Features
-- **AI Copilot**: Claude-powered assistant provides guidance and warnings
-- **Dynamic Scenarios**: LLM-generated emergencies keep things interesting
-- **Radio Chatter**: AI-generated pilot responses with text-to-speech
-- **Collision Detection**: Near-miss warnings and collision consequences
-- **Landing System**: Approach vectors and scoring for safe landings
-- **Visual Effects**: WebGL CRT shaders with barrel distortion and glow
+- **AI Copilot**: Claude-powered assistant for command suggestions and warnings
+- **Natural Language Commands**: Parse pilot-like input ("turn AAL123 left to 090")
+- **LLM Scenarios**: AI-generated emergencies and dynamic events
+- **Radio Chatter**: TTS pilot-controller communications
+- **Chat System**: Real-time communication for controllers
+- **Leaderboards**: Global and room-specific rankings
+- **Controller Handoff**: Transfer aircraft control between players
+- **Spectator Mode**: Watch-only mode for queued players
 
 ## Tech Stack
 
@@ -29,7 +46,7 @@ A real-time multiplayer web application where multiple users simultaneously cont
 - **State Management**: Zustand
 - **Rendering**: Canvas API + WebGL shaders
 - **LLMs**: Anthropic Claude + OpenAI TTS
-- **Deployment**: Vercel + Railway/Render
+- **Deployment**: Google Cloud Platform (Compute Engine + Cloud CDN)
 
 ## Getting Started
 
@@ -115,6 +132,54 @@ pnpm build
 
 # Clean all node_modules and build artifacts
 pnpm clean
+```
+
+## Production Deployment
+
+This project includes production-ready deployment scripts for Google Cloud Platform with enterprise-grade security and auto-scaling.
+
+### Quick Start
+
+```bash
+cd deploy
+cp .env.example .env
+# Edit .env with your configuration
+./deploy.sh
+```
+
+### Features
+
+- 🛡️ **Security**: Cloud Armor DDoS protection, WAF rules, rate limiting
+- 📈 **Auto-scaling**: Managed Instance Group (1-5 VMs based on CPU)
+- 🔒 **SSL/TLS**: Google-managed certificates with auto-renewal
+- 🚀 **CDN**: Cloud CDN for static assets
+- 📊 **Monitoring**: Cloud Monitoring with proactive alerts
+- 🔐 **Secrets**: Secret Manager for API keys
+
+### Cost Estimate
+
+- **Low traffic** (few users): $85-150/month
+- **Medium traffic** (moderate use): $238/month
+- **High traffic** (popular): $827+/month
+
+### Documentation
+
+- **Quick Start**: [deploy/README.md](deploy/README.md)
+- **Full Guide**: [deploy/DEPLOYMENT.md](deploy/DEPLOYMENT.md)
+- **Security**: [deploy/SECURITY_CHECKLIST.md](deploy/SECURITY_CHECKLIST.md)
+- **Operations**: [deploy/RUNBOOK.md](deploy/RUNBOOK.md)
+
+### Architecture
+
+```
+Internet → Load Balancer (HTTPS + SSL) → Cloud Armor (DDoS/WAF)
+                ↓
+         Backend Service → Managed Instance Group (1-5 VMs)
+                ↓
+         Node.js Server (Express + Socket.io)
+                ├─ Serves React SPA
+                ├─ WebSocket real-time game
+                └─ Health/Stats APIs
 ```
 
 ## Contributing

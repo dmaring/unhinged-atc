@@ -101,7 +101,7 @@ function App() {
       setGameEndData(data)
       setGameEndCountdown(5)
     },
-    onReturnToLogin: (data: { message: string }) => {
+    onReturnToLogin: (_data: { message: string }) => {
       // Return to login screen
       setIsAuthenticated(false)
       setGameEndData(null)

@@ -122,3 +122,86 @@ Each aircraft type in `AIRCRAFT_TYPES` has realistic performance characteristics
 
 ### WebSocket State Management
 Server sends lightweight `StateDelta` with only changed aircraft data (though currently sends all aircraft like a radar sweep). Clients merge deltas into their local Zustand store.
+
+## Production Deployment
+
+### Deployment Commands
+
+**Create deployment package**:
+```bash
+cd /path/to/unhinged-atc
+./deploy/create-package.sh
+```
+
+**Deploy to GCP** (first time):
+```bash
+cd deploy
+cp .env.example .env
+# Edit .env with your configuration
+./deploy.sh
+```
+
+**Update existing deployment**:
+```bash
+# Build and upload new package
+./deploy/create-package.sh
+
+# Rolling update to new version
+gcloud compute instance-groups managed rolling-action replace atc-mig --zone=us-central1-a
+
+# Or create new template with version number
+gcloud compute instance-templates create atc-template-v2 \
+    --source-instance-template=atc-template-v1 \
+    --metadata=domain=yourdomain.com
+```
+
+### Environment Setup
+
+**Production Server** (set by startup script):
+- `NODE_ENV=production`
+- `PORT=3000`
+- `CORS_ORIGIN` - fetched from instance metadata `domain` attribute
+- `ANTHROPIC_API_KEY` - from Secret Manager
+- `OPENAI_API_KEY` - from Secret Manager
+
+**Production Client** (generated during deployment):
+- `VITE_WS_URL=wss://yourdomain.com`
+- `VITE_API_URL=https://yourdomain.com`
+
+### Troubleshooting Deployment
+
+**Instance fails to start**:
+```bash
+# Check serial console logs
+gcloud compute instances get-serial-port-output INSTANCE_NAME --zone=us-central1-a
+
+# Check systemd service logs
+gcloud compute ssh INSTANCE_NAME --zone=us-central1-a
+sudo journalctl -u unhinged-atc.service -f
+```
+
+**Module resolution errors**:
+- Ensure `packages/shared/package.json` points to `dist/` not `src/`
+- Check that all packages have been built: `pnpm build` in shared, server, client
+
+**Deployment package not found**:
+- Run `./deploy/create-package.sh` to create and upload package
+- Verify bucket exists: `gsutil ls gs://PROJECT_ID-deploy/`
+
+**Domain not resolving**:
+- Check DNS A record points to load balancer IP
+- Wait 5-15 minutes for DNS propagation
+- Test: `dig yourdomain.com`
+
+### Architecture Overview
+
+```
+deploy/
+├── deploy.sh              # Main deployment orchestrator (13 steps)
+├── create-package.sh      # Build and upload code to Cloud Storage
+├── startup-script.sh      # VM initialization script
+├── cloud-armor.sh         # DDoS protection and WAF
+├── firewall-rules.sh      # Zero-trust VPC firewall
+├── monitoring.sh          # Alerts and uptime checks
+└── .env                   # Configuration (PROJECT_ID, DOMAIN, etc.)
+```
