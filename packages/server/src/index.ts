@@ -172,13 +172,18 @@ io.on('connection', (socket) => {
     // Get or create room
     const room = gameEngine.getOrCreateRoom(roomId);
 
-    // Check if username is already taken in this room
+    // Check if username is already taken in this room (active players or queue)
     const existingControllers = Object.values(room.getGameState().controllers);
-    const usernameTaken = existingControllers.some(
+    const usernameInActive = existingControllers.some(
       (controller) => controller.username.toLowerCase() === username.toLowerCase() && controller.id !== socket.id
     );
 
-    if (usernameTaken) {
+    const queuedPlayers = room.getQueuedPlayers();
+    const usernameInQueue = queuedPlayers.some(
+      (player) => player.username.toLowerCase() === username.toLowerCase() && player.socketId !== socket.id
+    );
+
+    if (usernameInActive || usernameInQueue) {
       console.log(`[Socket ${socket.id}] Rejected username "${username}" - already taken in room ${roomId}`);
       socket.emit('join_error', { message: 'Screen name is already taken. Please choose another.' });
       return;

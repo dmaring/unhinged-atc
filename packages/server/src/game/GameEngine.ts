@@ -94,7 +94,7 @@ export class GameEngine {
   }
 
   /**
-   * Handle game restart - kick all players to login and promote from queue
+   * Handle game restart - notify players and preserve queue positions
    */
   private handleGameRestart(roomId: string): void {
     const room = this.rooms.get(roomId);
@@ -106,18 +106,18 @@ export class GameEngine {
     const socketsInRoom = this.io.sockets.adapter.rooms.get(roomId);
 
     if (socketsInRoom) {
-      // Kick all players back to login
+      // Notify all players game is restarting (they remain in room and will auto-rejoin queue)
       socketsInRoom.forEach((socketId) => {
         const socket = this.io.sockets.sockets.get(socketId);
         if (socket) {
-          socket.emit('return_to_login', { message: 'Game ended. Please rejoin!' });
-          socket.leave(roomId);
+          socket.emit('game_restarting', { message: 'Game ended. Preparing next round...' });
+          // Note: Players stay in room, will auto-rejoin queue via client
         }
       });
     }
 
-    // Reset the room (this will clear controllers and reset game state)
-    room.resetGameState();
+    // Reset the room for next game (clears active controllers, preserves queue)
+    room.resetForNextGame();
 
     // Promote queued players to fill the new game
     const maxPlayers = GAME_CONFIG.MAX_CONTROLLERS_PER_ROOM;

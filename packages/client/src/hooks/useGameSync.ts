@@ -11,6 +11,7 @@ export interface QueueCallbacks {
   onPlayerEnteredGame?: (data: { username: string; playerId: string }) => void;
   onPlayerLeftGame?: (data: { username: string; playerId: string }) => void;
   onGameEnded?: (data: GameEndData) => void;
+  onGameRestarting?: (data: { message: string }) => void;
   onReturnToLogin?: (data: { message: string }) => void;
   onAutoChaosActivated?: (data: { chaosName: string; chaosDescription: string }) => void;
 }
@@ -225,6 +226,11 @@ export function useGameSync(
       queueCallbacks?.onGameEnded?.(data);
     };
 
+    const onGameRestarting = (data: { message: string }) => {
+      console.log('[GameSync] Game restarting:', data);
+      queueCallbacks?.onGameRestarting?.(data);
+    };
+
     const onReturnToLogin = (data: { message: string }) => {
       console.log('[GameSync] Returning to login:', data);
       queueCallbacks?.onReturnToLogin?.(data);
@@ -238,6 +244,7 @@ export function useGameSync(
     socket.on('player_entered_game', onPlayerEnteredGame);
     socket.on('player_left_game', onPlayerLeftGame);
     socket.on('game_ended', onGameEnded);
+    socket.on('game_restarting', onGameRestarting);
     socket.on('return_to_login', onReturnToLogin);
 
     // Cleanup
@@ -260,6 +267,7 @@ export function useGameSync(
       socket.off('player_entered_game', onPlayerEnteredGame);
       socket.off('player_left_game', onPlayerLeftGame);
       socket.off('game_ended', onGameEnded);
+      socket.off('game_restarting', onGameRestarting);
       socket.off('return_to_login', onReturnToLogin);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

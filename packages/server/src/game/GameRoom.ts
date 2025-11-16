@@ -1209,6 +1209,69 @@ export class GameRoom {
   }
 
   /**
+   * Reset the game for the next round while preserving queue positions
+   * Active players will be moved to the back of the queue via client auto-rejoin
+   * Already-queued players keep their positions
+   */
+  resetForNextGame(): void {
+    const roomId = this.gameState.roomId;
+
+    console.log(`[GameRoom ${roomId}] Resetting for next game (preserving queue)...`);
+
+    // Clear tracking sets
+    this.fuelWarnings.clear();
+    this.fuelEmergencies.clear();
+    this.sentEventIds.clear();
+    this.previousWeatherCells = [];
+    this.gameEndData = null;
+
+    // Clear active player tracking (they'll rejoin queue via client)
+    this.activePlayerIds.clear();
+
+    // Reset counters
+    this.aircraftCounter = 0;
+    this.lastSpawnTime = 0;
+
+    // Reinitialize game state with NO controllers (queue is preserved)
+    this.gameState = {
+      roomId,
+      createdAt: Date.now(),
+      aircraft: {},
+      airspace: this.gameState.airspace, // Preserve airspace definition
+      controllers: {}, // Clear all controllers
+      score: 0,
+      successfulLandings: 0,
+      nearMisses: 0,
+      collisions: 0,
+      planesCleared: 0,
+      crashCount: 0,
+      recentEvents: [],
+      gameTime: 0,
+      isPaused: false,
+      timeScale: 10,
+      gameStartTime: Date.now(),
+      gameEndTime: Date.now() + (GAME_CONFIG.GAME_DURATION * 1000),
+      lastSpawnTime: 0,
+      nextBonusAt: GAME_CONFIG.CRASH_FREE_BONUS_INTERVAL,
+      lastAutoChaosTime: 0,
+      chaosAbilities: {},
+    };
+
+    // Initialize chaos abilities cooldowns
+    Object.keys(CHAOS_ABILITIES).forEach((chaosType) => {
+      this.gameState.chaosAbilities[chaosType] = {
+        lastUsed: 0,
+        usageCount: 0,
+      };
+    });
+
+    // Spawn initial aircraft
+    this.spawnInitialAircraft();
+
+    console.log(`[GameRoom ${roomId}] Game reset for next round. Queue preserved.`);
+  }
+
+  /**
    * Reset the game state completely (for game end restart)
    * Clears all aircraft, controllers, resets scores, and spawns new aircraft
    */

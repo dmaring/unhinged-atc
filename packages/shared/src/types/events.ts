@@ -17,7 +17,8 @@ export type EventType =
   | "plane_cleared"
   | "player_entered"
   | "player_left"
-  | "game_ended";
+  | "game_ended"
+  | "game_restarting";
 
 export type EventSeverity = "info" | "warning" | "critical" | "funny";
 
@@ -48,4 +49,5 @@ export interface GameEndData {
   successfulLandings: number;
   gameDuration: number; // seconds
   funnyMessage: string;
+  queuePosition?: number; // Position in queue after game restart (1-indexed, undefined if joining as active player)
 }

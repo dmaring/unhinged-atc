@@ -3,6 +3,7 @@ import './App.css'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useGameSync } from './hooks/useGameSync'
 import { useKeyboardControls } from './hooks/useKeyboardControls'
+import { useSessionStorage } from './hooks/useSessionStorage'
 import { useGameStore } from './stores/gameStore'
 import { RadarDisplay } from './components/RadarDisplay'
 import { ControlPanel } from './components/ControlPanel'
@@ -20,8 +21,9 @@ import { GameEndData } from 'shared'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
+  // Use sessionStorage for credentials (persists across game restarts, cleared when tab closes)
+  const [username, setUsername] = useSessionStorage<string>('atc_username', '')
+  const [email, setEmail] = useSessionStorage<string>('atc_email', '')
   const [loginError, setLoginError] = useState<string | null>(null)
   const [showResetModal, setShowResetModal] = useState(false)
 
@@ -39,6 +41,13 @@ function App() {
   // Chaos alert state
   const [chaosAlertName, setChaosAlertName] = useState<string | null>(null)
   const [chaosAlertDescription, setChaosAlertDescription] = useState<string | null>(null)
+
+  // Auto-authenticate on mount if credentials exist in sessionStorage
+  useEffect(() => {
+    if (username && email && !isAuthenticated) {
+      setIsAuthenticated(true)
+    }
+  }, [username, email, isAuthenticated])
 
   // Always call hook, but only enable WebSocket after authentication
   const { socket, isConnected, connectionError } = useWebSocket(isAuthenticated)
@@ -101,8 +110,15 @@ function App() {
       setGameEndData(data)
       setGameEndCountdown(5)
     },
+    onGameRestarting: (_data: { message: string }) => {
+      // Game is restarting - keep authentication, auto-rejoin queue
+      setGameEndData(null)
+      setGameEndCountdown(5)
+      // Note: isAuthenticated remains true, credentials preserved in sessionStorage
+      // The useGameSync hook will automatically rejoin the queue
+    },
     onReturnToLogin: (_data: { message: string }) => {
-      // Return to login screen
+      // Explicit logout/disconnect - return to login screen
       setIsAuthenticated(false)
       setGameEndData(null)
       setGameEndCountdown(5)
