@@ -24,7 +24,7 @@ import { PerformancePanel } from './components/PerformancePanel'
 import { MobileTutorial } from './components/MobileTutorial'
 import { QuickActionBar } from './components/QuickActionBar'
 import { OrientationProvider, useOrientation } from './contexts/OrientationProvider'
-import { GameEndData } from 'shared'
+import { GameEndData, CHAOS_ABILITIES } from 'shared'
 
 // Separate game content component to use orientation hook
 function GameContent() {
@@ -375,8 +375,15 @@ function GameUI({
   };
 
   const handleQuickRandomChaos = () => {
-    const available = Object.entries(chaosAbilities)
-      .filter(([_, ability]) => ability.available)
+    const now = Date.now();
+    const available = (Object.entries(chaosAbilities) as [string, { lastUsed: number; usageCount: number }][])
+      .filter(([chaosType, ability]) => {
+        const config = CHAOS_ABILITIES[chaosType as keyof typeof CHAOS_ABILITIES];
+        if (!config) return false;
+        if (!ability.lastUsed) return true;
+        const timeSinceLastUse = now - ability.lastUsed;
+        return timeSinceLastUse >= config.cooldownDuration;
+      })
       .map(([key]) => key);
 
     if (available.length === 0) return;
@@ -391,8 +398,15 @@ function GameUI({
   };
 
   // Get available chaos abilities for quick action bar
-  const availableChaosAbilities = Object.entries(chaosAbilities)
-    .filter(([_, ability]) => ability.available)
+  const now = Date.now();
+  const availableChaosAbilities = (Object.entries(chaosAbilities) as [string, { lastUsed: number; usageCount: number }][])
+    .filter(([chaosType, ability]) => {
+      const config = CHAOS_ABILITIES[chaosType as keyof typeof CHAOS_ABILITIES];
+      if (!config) return false;
+      if (!ability.lastUsed) return true;
+      const timeSinceLastUse = now - ability.lastUsed;
+      return timeSinceLastUse >= config.cooldownDuration;
+    })
     .map(([key]) => key);
 
   // Control panels content (reused in sidebar or bottom sheet)
