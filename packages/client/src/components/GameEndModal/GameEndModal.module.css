@@ -145,7 +145,148 @@
   }
 }
 
-@media (max-width: 600px) {
+/* Mobile portrait optimizations */
+@media (max-width: 767px) and (orientation: portrait) {
+  .modal {
+    width: 95%;
+    max-width: none;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .header {
+    padding: 12px 15px;
+  }
+
+  .icon {
+    font-size: 20px;
+  }
+
+  .title {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .content {
+    padding: 20px 15px;
+  }
+
+  .reason {
+    font-size: 16px;
+    margin-bottom: 15px;
+  }
+
+  .funnyMessage {
+    font-size: 14px;
+    padding: 12px;
+    margin-bottom: 20px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .statItem {
+    padding: 12px;
+  }
+
+  .statLabel {
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+
+  .statValue {
+    font-size: 24px;
+  }
+
+  .countdown {
+    padding: 15px;
+  }
+
+  .countdownLabel {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .countdownValue {
+    font-size: 36px;
+  }
+}
+
+/* Mobile landscape optimizations */
+@media (max-width: 767px) and (orientation: landscape) {
+  .modal {
+    width: 95%;
+    max-width: none;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .header {
+    padding: 8px 15px;
+  }
+
+  .icon {
+    font-size: 18px;
+  }
+
+  .title {
+    font-size: 16px;
+    letter-spacing: 2px;
+  }
+
+  .content {
+    padding: 15px;
+  }
+
+  .reason {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .funnyMessage {
+    font-size: 13px;
+    padding: 10px;
+    margin-bottom: 15px;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  .statItem {
+    padding: 10px;
+  }
+
+  .statLabel {
+    font-size: 9px;
+    margin-bottom: 4px;
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
+
+  .countdown {
+    padding: 12px;
+  }
+
+  .countdownLabel {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .countdownValue {
+    font-size: 28px;
+  }
+}
+
+/* Tablet and larger (fallback) */
+@media (max-width: 600px) and (min-width: 768px) {
   .statsGrid {
     grid-template-columns: 1fr;
   }

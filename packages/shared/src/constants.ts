@@ -62,6 +62,63 @@ export const RADAR_CONFIG = {
   AIRCRAFT_SIZE: 8, // pixels
 } as const;
 
+export const MOBILE_CONFIG = {
+  // Touch interaction settings
+  TAP_TOLERANCE_TOUCH: 44, // px - WCAG 2.2 minimum touch target size
+  TAP_TOLERANCE_MOUSE: 15, // px - desktop click tolerance
+  TAP_DURATION_MAX: 300, // ms - maximum duration for tap detection
+  DOUBLE_TAP_MAX_INTERVAL: 400, // ms - time window for double-tap detection
+  DOUBLE_TAP_MAX_DISTANCE: 50, // px - maximum distance between taps for double-tap
+
+  // Zoom and pan settings
+  ZOOM_MIN: 0.5, // Minimum zoom level
+  ZOOM_MAX: 3.0, // Maximum zoom level
+  ZOOM_DOUBLE_TAP_TARGET: 2.0, // Zoom level when double-tapping
+
+  // Font and icon scaling
+  FONT_SCALE_MOBILE: 1.3, // 30% larger on mobile (390-767px)
+  FONT_SCALE_TABLET: 1.15, // 15% larger on tablet (768-1024px)
+  FONT_SCALE_DESKTOP: 1.0, // No scaling on desktop (>1024px)
+
+  ICON_SIZE_MOBILE: 12, // px - aircraft icon size on mobile
+  ICON_SIZE_TABLET: 10, // px - aircraft icon size on tablet
+  ICON_SIZE_DESKTOP: 8, // px - aircraft icon size on desktop
+
+  // Breakpoints (px)
+  BREAKPOINT_MOBILE_MAX: 767, // Mobile devices: 0-767px
+  BREAKPOINT_TABLET_MIN: 768, // Tablet devices: 768-1024px
+  BREAKPOINT_TABLET_MAX: 1024,
+  BREAKPOINT_DESKTOP_MIN: 1025, // Desktop: 1025px+
+
+  // Performance settings
+  TARGET_FPS_MOBILE: 45, // Lower target FPS for mobile to conserve battery
+  TARGET_FPS_DESKTOP: 60, // Standard 60 FPS for desktop
+  LOW_FPS_THRESHOLD_MOBILE: 30, // Warn if FPS drops below 30 on mobile
+  LOW_FPS_THRESHOLD_DESKTOP: 45, // Warn if FPS drops below 45 on desktop
+  BATTERY_SAVER_FPS: 30, // Battery saver mode caps at 30 FPS
+  FPS_MEASUREMENT_INTERVAL: 500, // ms - measure FPS every 500ms
+  FPS_HISTORY_LENGTH: 10, // Keep last 10 FPS measurements for average
+
+  // Layout settings
+  SIDEBAR_WIDTH_DESKTOP: 400, // px - desktop sidebar width
+  SIDEBAR_WIDTH_TABLET: 350, // px - tablet sidebar width
+  SIDEBAR_WIDTH_MOBILE_LANDSCAPE: 280, // px - mobile landscape sidebar width
+  SIDEBAR_COLLAPSED_WIDTH: 40, // px - collapsed sidebar width (just toggle button)
+
+  BOTTOM_SHEET_SNAP_POINTS: [120, 0.5, 0.85], // Peek (px), half (%), full (%) of screen height
+
+  // Stepper controls
+  STEPPER_HEADING_STEP: 5, // degrees
+  STEPPER_ALTITUDE_STEP: 1000, // feet
+  STEPPER_SPEED_STEP: 10, // knots
+  STEPPER_BUTTON_SIZE_MOBILE: 48, // px - touch-friendly size
+  STEPPER_BUTTON_SIZE_DESKTOP: 40, // px - desktop size
+
+  // Tutorial settings
+  TUTORIAL_DISMISSED_KEY: 'atc_mobile_tutorial_dismissed',
+  TUTORIAL_DELAY: 1000, // ms - delay before showing tutorial
+} as const;
+
 export const CHAOS_ABILITIES = {
   reverse_course: {
     name: "Reverse Course",

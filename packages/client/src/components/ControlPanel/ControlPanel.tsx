@@ -1,17 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Aircraft } from 'shared';
 import styles from './ControlPanel.module.css';
+import { NumericStepper } from '../NumericStepper';
+import { AircraftSelector } from '../AircraftSelector';
+import { isTouchDevice } from '../../utils/deviceDetection';
 
 interface ControlPanelProps {
   selectedAircraft: Aircraft | null;
+  allAircraft?: Aircraft[];
   onCommand: (aircraftId: string, commandType: string, params: any) => void;
+  onAircraftSelect?: (id: string) => void;
 }
 
-export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps) {
+export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, onAircraftSelect }: ControlPanelProps) {
   const [heading, setHeading] = useState('');
   const [altitude, setAltitude] = useState('');
   const [speed, setSpeed] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const isTouch = isTouchDevice();
+
+  // Stepper values for touch devices
+  const [stepperHeading, setStepperHeading] = useState(0);
+  const [stepperAltitude, setStepperAltitude] = useState(0);
+  const [stepperSpeed, setStepperSpeed] = useState(0);
+
+  // Update stepper values when aircraft changes
+  useEffect(() => {
+    if (selectedAircraft) {
+      setStepperHeading(Math.round(selectedAircraft.targetHeading));
+      setStepperAltitude(Math.round(selectedAircraft.targetAltitude));
+      setStepperSpeed(Math.round(selectedAircraft.targetSpeed));
+    }
+  }, [selectedAircraft]);
 
   const handleTurnLeft = () => {
     if (!selectedAircraft) return;
@@ -66,6 +87,26 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
     setSpeed('');
   };
 
+  // Stepper handlers for touch devices
+  const handleStepperHeadingSubmit = () => {
+    if (!selectedAircraft) return;
+    onCommand(selectedAircraft.id, 'turn', { heading: stepperHeading });
+  };
+
+  const handleStepperAltitudeSubmit = () => {
+    if (!selectedAircraft) return;
+    if (stepperAltitude > selectedAircraft.altitude) {
+      onCommand(selectedAircraft.id, 'climb', { altitude: stepperAltitude });
+    } else if (stepperAltitude < selectedAircraft.altitude) {
+      onCommand(selectedAircraft.id, 'descend', { altitude: stepperAltitude });
+    }
+  };
+
+  const handleStepperSpeedSubmit = () => {
+    if (!selectedAircraft) return;
+    onCommand(selectedAircraft.id, 'speed', { speed: stepperSpeed });
+  };
+
   if (!selectedAircraft) {
     return (
       <div className={`${styles.panel} ${isCollapsed ? styles.collapsed : ''}`}>
@@ -98,6 +139,17 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
 
       {!isCollapsed && (
         <>
+          {/* Aircraft selector for touch devices */}
+          {isTouch && onAircraftSelect && allAircraft.length > 0 && (
+            <div className={styles.section}>
+              <AircraftSelector
+                aircraft={allAircraft}
+                selectedAircraftId={selectedAircraft.id}
+                onAircraftSelect={onAircraftSelect}
+              />
+            </div>
+          )}
+
           <div className={styles.section}>
             <div className={styles.aircraftInfo}>
               <div className={styles.callsign}>{selectedAircraft.callsign}</div>
@@ -131,48 +183,97 @@ export function ControlPanel({ selectedAircraft, onCommand }: ControlPanelProps)
           <div className={styles.section}>
             <div className={styles.sectionTitle}>PRECISE CONTROL</div>
 
-            <div className={styles.inputGroup}>
-              <label>Heading (0-360°)</label>
-              <div className={styles.inputRow}>
-                <input
-                  type="number"
-                  value={heading}
-                  onChange={(e) => setHeading(e.target.value)}
-                  placeholder="270"
-                  min="0"
-                  max="360"
+            {isTouch ? (
+              // Touch-friendly steppers for mobile
+              <>
+                <NumericStepper
+                  value={stepperHeading}
+                  min={0}
+                  max={359}
+                  step={5}
+                  unit="°"
+                  label="Heading"
+                  onChange={setStepperHeading}
+                  onSubmit={handleStepperHeadingSubmit}
                 />
-                <button onClick={handleSetHeading}>SET</button>
-              </div>
-            </div>
+                <NumericStepper
+                  value={stepperAltitude}
+                  min={0}
+                  max={45000}
+                  step={1000}
+                  unit="ft"
+                  label="Altitude"
+                  onChange={setStepperAltitude}
+                  onSubmit={handleStepperAltitudeSubmit}
+                />
+                <NumericStepper
+                  value={stepperSpeed}
+                  min={100}
+                  max={600}
+                  step={10}
+                  unit="kts"
+                  label="Speed"
+                  onChange={setStepperSpeed}
+                  onSubmit={handleStepperSpeedSubmit}
+                />
+                <button
+                  className={styles.applyButton}
+                  onClick={() => {
+                    handleStepperHeadingSubmit();
+                    handleStepperAltitudeSubmit();
+                    handleStepperSpeedSubmit();
+                  }}
+                >
+                  APPLY ALL
+                </button>
+              </>
+            ) : (
+              // Traditional inputs for desktop
+              <>
+                <div className={styles.inputGroup}>
+                  <label>Heading (0-360°)</label>
+                  <div className={styles.inputRow}>
+                    <input
+                      type="number"
+                      value={heading}
+                      onChange={(e) => setHeading(e.target.value)}
+                      placeholder="270"
+                      min="0"
+                      max="360"
+                    />
+                    <button onClick={handleSetHeading}>SET</button>
+                  </div>
+                </div>
 
-            <div className={styles.inputGroup}>
-              <label>Altitude (ft)</label>
-              <div className={styles.inputRow}>
-                <input
-                  type="number"
-                  value={altitude}
-                  onChange={(e) => setAltitude(e.target.value)}
-                  placeholder="25000"
-                  min="0"
-                  max="45000"
-                />
-                <button onClick={handleSetAltitude}>SET</button>
-              </div>
-            </div>
+                <div className={styles.inputGroup}>
+                  <label>Altitude (ft)</label>
+                  <div className={styles.inputRow}>
+                    <input
+                      type="number"
+                      value={altitude}
+                      onChange={(e) => setAltitude(e.target.value)}
+                      placeholder="25000"
+                      min="0"
+                      max="45000"
+                    />
+                    <button onClick={handleSetAltitude}>SET</button>
+                  </div>
+                </div>
 
-            <div className={styles.inputGroup}>
-              <label>Speed (kts)</label>
-              <div className={styles.inputRow}>
-                <input
-                  type="number"
-                  value={speed}
-                  onChange={(e) => setSpeed(e.target.value)}
-                  placeholder="350"
-                />
-                <button onClick={handleSetSpeed}>SET</button>
-              </div>
-            </div>
+                <div className={styles.inputGroup}>
+                  <label>Speed (kts)</label>
+                  <div className={styles.inputRow}>
+                    <input
+                      type="number"
+                      value={speed}
+                      onChange={(e) => setSpeed(e.target.value)}
+                      placeholder="350"
+                    />
+                    <button onClick={handleSetSpeed}>SET</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {selectedAircraft.emergencyType && (

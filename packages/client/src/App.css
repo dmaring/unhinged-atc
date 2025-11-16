@@ -43,6 +43,30 @@
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
+  transition: width 0.3s ease, padding 0.3s ease;
+  position: relative;
+}
+
+/* Sidebar toggle button (mobile landscape only) */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: -2px; /* Align with border */
+  transform: translateY(-50%);
+  width: 40px;
+  height: 80px;
+  min-width: 40px;
+  min-height: 80px;
+  padding: 0;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 8px 8px 0;
+  background-color: var(--background-black);
+  border: 2px solid var(--primary-green);
+  border-left: none;
+  z-index: 10;
 }
 
 .header {
@@ -143,4 +167,181 @@ input:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--bright-green);
+}
+
+/* ==================== RESPONSIVE MOBILE LAYOUTS ==================== */
+
+/* Mobile Portrait Mode (<768px width) */
+@media (max-width: 767px) and (orientation: portrait) {
+  .header {
+    font-size: 16px;
+    padding: 8px;
+    letter-spacing: 1px;
+  }
+
+  .game-container {
+    flex-direction: column;
+    position: relative;
+  }
+
+  .radar-section {
+    flex: 1;
+    margin: 5px;
+    border: 2px solid var(--primary-green);
+    /* Fullscreen radar in portrait */
+    width: calc(100% - 10px);
+  }
+
+  .control-section {
+    /* Hidden in portrait - controls moved to BottomSheet */
+    display: none;
+  }
+
+  /* Make buttons larger for touch */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  /* Make inputs larger for touch */
+  input {
+    min-height: 44px;
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile Landscape Mode (<768px height) */
+@media (max-width: 767px) and (orientation: landscape) {
+  .header {
+    font-size: 14px;
+    padding: 6px;
+    letter-spacing: 1px;
+  }
+
+  .game-container {
+    flex-direction: row;
+  }
+
+  .radar-section {
+    flex: 1;
+    margin: 5px;
+  }
+
+  .control-section {
+    width: 280px; /* Narrower sidebar for landscape mobile */
+    margin: 5px 5px 5px 0;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* Collapsed sidebar in mobile landscape */
+  .control-section.collapsed {
+    width: 40px; /* Just wide enough for toggle button */
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .control-section.collapsed .sidebar-toggle {
+    position: static;
+    transform: none;
+    margin: auto;
+    border-radius: 8px;
+    border: 2px solid var(--primary-green);
+  }
+
+  /* Make buttons touch-friendly */
+  button {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  input {
+    min-height: 40px;
+    padding: 10px;
+    font-size: 13px;
+  }
+}
+
+/* Tablet Portrait (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+  .header {
+    font-size: 20px;
+  }
+
+  .game-container {
+    flex-direction: column;
+  }
+
+  .radar-section {
+    flex: 1;
+    margin: 8px;
+  }
+
+  .control-section {
+    width: auto;
+    height: 300px;
+    margin: 0 8px 8px 8px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-x: auto;
+  }
+
+  /* Slightly larger buttons for tablet */
+  button {
+    min-height: 42px;
+    min-width: 42px;
+  }
+
+  input {
+    min-height: 42px;
+  }
+}
+
+/* Tablet Landscape (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+  .control-section {
+    width: 350px;
+  }
+
+  /* Slightly larger buttons for tablet */
+  button {
+    min-height: 42px;
+    min-width: 42px;
+  }
+
+  input {
+    min-height: 42px;
+  }
+}
+
+/* Desktop and Large Screens (>1024px) - Keep existing styles */
+@media (min-width: 1025px) {
+  /* Default styles already applied above */
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .app {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .control-section {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Prevent zoom on input focus (iOS Safari) */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
 }

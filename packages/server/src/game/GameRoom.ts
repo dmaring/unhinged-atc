@@ -39,6 +39,7 @@ import {
   LANDING_SUCCESS_MESSAGES,
   LANDING_FAILURE_MESSAGES,
 } from './MessageTemplates.js';
+import { Logger } from '../utils/logger.js';
 
 export class GameRoom {
   private gameState: GameState;
@@ -516,7 +517,11 @@ export class GameRoom {
       severity: 'info',
     });
 
-    console.log(`[GameRoom ${this.gameState.roomId}] Controller joined: ${username} (${socketId})`);
+    Logger.info(`Controller joined: ${username}`, {
+      roomId: this.gameState.roomId,
+      socketId,
+      email
+    });
 
     return controller;
   }
@@ -542,7 +547,10 @@ export class GameRoom {
       severity: 'info',
     });
 
-    console.log(`[GameRoom ${this.gameState.roomId}] Controller left: ${controller.username}`);
+    Logger.info(`Controller left: ${controller.username}`, {
+      roomId: this.gameState.roomId,
+      socketId
+    });
   }
 
   /**
@@ -581,7 +589,12 @@ export class GameRoom {
     this.queuedPlayers.set(socketId, queuedPlayer);
     this.updateQueuePositions();
 
-    console.log(`[GameRoom ${this.gameState.roomId}] Player queued: ${username} (Position: ${queuedPlayer.position})`);
+    Logger.info(`Player queued: ${username}`, {
+      roomId: this.gameState.roomId,
+      socketId,
+      position: queuedPlayer.position,
+      email
+    });
 
     return queuedPlayer;
   }
@@ -596,7 +609,10 @@ export class GameRoom {
     this.queuedPlayers.delete(socketId);
     this.updateQueuePositions();
 
-    console.log(`[GameRoom ${this.gameState.roomId}] Player removed from queue: ${queuedPlayer.username}`);
+    Logger.info(`Player removed from queue: ${queuedPlayer.username}`, {
+      roomId: this.gameState.roomId,
+      socketId
+    });
   }
 
   /**
@@ -620,7 +636,10 @@ export class GameRoom {
     // Update positions for remaining queued players
     this.updateQueuePositions();
 
-    console.log(`[GameRoom ${this.gameState.roomId}] Promoting from queue: ${firstInQueue.username}`);
+    Logger.info(`Promoting from queue: ${firstInQueue.username}`, {
+      roomId: this.gameState.roomId,
+      socketId: firstInQueue.socketId
+    });
 
     return firstInQueue;
   }
@@ -734,8 +753,6 @@ export class GameRoom {
       severity: 'funny',
     });
 
-    console.log(`[GameRoom ${this.gameState.roomId}] CHAOS: ${chaosConfig.name} activated by ${command.controllerId}`);
-
     return { success: true, message };
   }
 
@@ -759,7 +776,6 @@ export class GameRoom {
   setTimeScale(scale: number): void {
     this.gameState.timeScale = Math.max(1, Math.min(30, scale));
     this.physics.setTimeScale(this.gameState.timeScale);
-    console.log(`[GameRoom ${this.gameState.roomId}] Time scale set to ${this.gameState.timeScale}x`);
   }
 
   /**
@@ -867,7 +883,6 @@ export class GameRoom {
     };
 
     this.gameState.aircraft[aircraft.id] = aircraft;
-    console.log(`[GameRoom ${this.gameState.roomId}] Aircraft spawned: ${aircraft.callsign}`);
 
     // Add spawn notification with humor
     const messageTemplate = pickRandom(AIRCRAFT_SPAWN_MESSAGES);
@@ -938,7 +953,6 @@ export class GameRoom {
    * Handle aircraft going out of bounds
    */
   private handleAircraftOutOfBounds(aircraft: Aircraft): void {
-    console.log(`[GameRoom ${this.gameState.roomId}] Aircraft ${aircraft.callsign} left airspace`);
 
     // Reward for successfully clearing airspace (unless crashed)
     if (!aircraft.isCrashing && !aircraft.hasCollided) {
@@ -957,8 +971,6 @@ export class GameRoom {
         message,
         severity: 'info',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] ${aircraft.callsign} cleared (+${POINTS.planeCleared} points)`);
     }
 
     // Remove aircraft
@@ -1001,8 +1013,6 @@ export class GameRoom {
         severity: 'info',
       });
 
-      console.log(`[GameRoom ${this.gameState.roomId}] LANDING: ${aircraft.callsign} at ${attempt.airport}`);
-
       // Remove aircraft after a delay (simulate taxi to gate)
       setTimeout(() => {
         delete this.gameState.aircraft[aircraft.id];
@@ -1025,8 +1035,6 @@ export class GameRoom {
         message,
         severity: 'warning',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] GO-AROUND: ${aircraft.callsign} - ${attempt.reason}`);
 
       // Set missed approach - climb to safe altitude
       aircraft.targetAltitude = Math.max(aircraft.targetAltitude, 3000);
@@ -1059,8 +1067,6 @@ export class GameRoom {
         message,
         severity: 'critical',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] FUEL EMERGENCY: ${aircraft.callsign}`);
     }
     // Low fuel warning: below 30%
     else if (fuelPercent < 30 && !this.fuelWarnings.has(aircraft.id)) {
@@ -1078,8 +1084,6 @@ export class GameRoom {
         message,
         severity: 'warning',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] Low fuel: ${aircraft.callsign}`);
     }
 
     // Out of fuel - mark as emergency landing required
@@ -1122,8 +1126,6 @@ export class GameRoom {
         message,
         severity: 'critical',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] COLLISION: ${callsigns}`);
     } else if (conflict.severity === 'near-miss') {
       // Near miss
       this.gameState.nearMisses++;
@@ -1141,8 +1143,6 @@ export class GameRoom {
         message,
         severity: 'critical',
       });
-
-      console.log(`[GameRoom ${this.gameState.roomId}] NEAR MISS: ${callsigns}`);
     } else {
       // Conflict warning
       const messageTemplate = pickRandom(CONFLICT_MESSAGES);
@@ -1190,8 +1190,6 @@ export class GameRoom {
       message,
       severity: 'critical',
     });
-
-    console.log(`[GameRoom ${this.gameState.roomId}] CRASH: ${callsigns} (Score: ${POINTS.crash}, Crash Count: +2)`);
   }
 
   /**
@@ -1216,7 +1214,7 @@ export class GameRoom {
   resetForNextGame(): void {
     const roomId = this.gameState.roomId;
 
-    console.log(`[GameRoom ${roomId}] Resetting for next game (preserving queue)...`);
+    Logger.info('Resetting for next game (preserving queue)', { roomId });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1268,7 +1266,7 @@ export class GameRoom {
     // Spawn initial aircraft
     this.spawnInitialAircraft();
 
-    console.log(`[GameRoom ${roomId}] Game reset for next round. Queue preserved.`);
+    Logger.info('Game reset for next round. Queue preserved.', { roomId });
   }
 
   /**
@@ -1278,7 +1276,7 @@ export class GameRoom {
   resetGameState(): void {
     const roomId = this.gameState.roomId;
 
-    console.log(`[GameRoom ${roomId}] Resetting game state for restart...`);
+    Logger.info('Resetting game state for restart', { roomId });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1330,7 +1328,7 @@ export class GameRoom {
     // Spawn initial aircraft
     this.spawnInitialAircraft();
 
-    console.log(`[GameRoom ${roomId}] Game state reset complete. Ready for new players.`);
+    Logger.info('Game state reset complete. Ready for new players.', { roomId });
   }
 
   /**
@@ -1342,7 +1340,7 @@ export class GameRoom {
     const roomId = this.gameState.roomId;
     const controllers = this.gameState.controllers;
 
-    console.log(`[GameRoom ${roomId}] Resetting game...`);
+    Logger.info('Resetting game', { roomId });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1440,7 +1438,7 @@ export class GameRoom {
     // Spawn initial aircraft
     this.spawnInitialAircraft();
 
-    console.log(`[GameRoom ${roomId}] Game reset complete. New aircraft spawned.`);
+    Logger.info('Game reset complete. New aircraft spawned.', { roomId });
 
     // Return the new game state
     return this.gameState;

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { GameEngine } from './game/GameEngine.js';
 import { AircraftCommand, ChaosCommand } from 'shared';
 import { loadSecrets } from './config/secrets.js';
+import { Logger } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,7 +210,11 @@ io.use((socket, next) => {
 
   // Allow 10 connection attempts per minute per IP
   if (attempt.count > 10) {
-    console.warn(`[Security] Too many connection attempts from ${ip}`);
+    Logger.security('rate_limit_exceeded', {
+      ip,
+      attemptCount: attempt.count,
+      type: 'socket_connection'
+    });
     return next(new Error('Too many connection attempts, please try again later'));
   }
 
@@ -222,9 +227,10 @@ gameEngine.start();
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`[${new Date().toISOString()}] Client connected: ${socket.id}`);
+  Logger.info(`Client connected: ${socket.id}`);
 
   let currentRoom: string | null = null;
+  let joinedAt: number | null = null; // Track when player joined for session duration
 
   // Handle join room
   socket.on('join_room', (data: { roomId?: string; username: string; email?: string }) => {
@@ -246,7 +252,11 @@ io.on('connection', (socket) => {
 
     // Check for profanity in username
     if (profanityFilter.isProfane(username)) {
-      console.log(`[Socket ${socket.id}] Rejected username "${username}" - contains profanity`);
+      Logger.security('profanity_detected', {
+        socketId: socket.id,
+        username,
+        ip: socket.handshake.address
+      });
       socket.emit('join_error', { message: 'Screen name contains inappropriate language' });
       return;
     }
@@ -275,7 +285,16 @@ io.on('connection', (socket) => {
     );
 
     if (usernameInActive || usernameInQueue) {
-      console.log(`[Socket ${socket.id}] Rejected username "${username}" - already taken in room ${roomId}`);
+      Logger.logPlayer({
+        event: 'player_rejected',
+        timestamp: new Date().toISOString(),
+        username,
+        email,
+        socketId: socket.id,
+        roomId,
+        ip: socket.handshake.address,
+        reason: 'username_taken'
+      });
       socket.emit('join_error', { message: 'Screen name is already taken. Please choose another.' });
       return;
     }
@@ -289,8 +308,20 @@ io.on('connection', (socket) => {
       // Add controller to room as active player
       const controller = room.addController(socket.id, username, email);
 
-      // Log the join event with email
-      console.log(`[Socket ${socket.id}] User joined - Username: ${username}, Email: ${email}, Room: ${roomId}`);
+      // Track join time for session duration
+      joinedAt = Date.now();
+
+      // Log the join event with structured data
+      Logger.logPlayer({
+        event: 'player_joined',
+        timestamp: new Date().toISOString(),
+        username,
+        email,
+        socketId: socket.id,
+        roomId,
+        ip: socket.handshake.address,
+        userAgent: socket.handshake.headers['user-agent']
+      });
 
       // Send initial game state
       const gameState = room.getGameState();
@@ -318,7 +349,21 @@ io.on('connection', (socket) => {
       // Room is full, add to queue
       const queuedPlayer = room.addToQueue(socket.id, username, email);
 
-      console.log(`[Socket ${socket.id}] User queued - Username: ${username}, Position: ${queuedPlayer.position}, Room: ${roomId}`);
+      // Track join time for queue duration
+      joinedAt = Date.now();
+
+      // Log queue event with structured data
+      Logger.logPlayer({
+        event: 'player_queued',
+        timestamp: new Date().toISOString(),
+        username,
+        email,
+        socketId: socket.id,
+        roomId,
+        queuePosition: queuedPlayer.position,
+        ip: socket.handshake.address,
+        userAgent: socket.handshake.headers['user-agent']
+      });
 
       // Send queue joined event
       socket.emit('queue_joined', {
@@ -328,7 +373,16 @@ io.on('connection', (socket) => {
       });
     } else {
       // Both room and queue are full
-      console.log(`[Socket ${socket.id}] Game full - Username: ${username}, Room: ${roomId}`);
+      Logger.logPlayer({
+        event: 'player_rejected',
+        timestamp: new Date().toISOString(),
+        username,
+        email,
+        socketId: socket.id,
+        roomId,
+        ip: socket.handshake.address,
+        reason: 'game_full'
+      });
 
       socket.emit('game_full', {
         message: 'Game is full and queue is at capacity. Please try again later.',
@@ -497,8 +551,6 @@ io.on('connection', (socket) => {
 
   // Handle disconnect
   socket.on('disconnect', (reason) => {
-    console.log(`[${new Date().toISOString()}] Client disconnected: ${socket.id}, reason: ${reason}`);
-
     if (currentRoom) {
       const room = gameEngine.getRoom(currentRoom);
       if (room) {
@@ -506,8 +558,23 @@ io.on('connection', (socket) => {
         const queuedPlayer = room.getQueuePosition(socket.id);
 
         if (controller) {
-          // Active player disconnected
+          // Active player disconnected - log with session data
           const username = controller.username;
+          const duration = joinedAt ? Date.now() - joinedAt : undefined;
+
+          Logger.logPlayer({
+            event: 'player_disconnected',
+            timestamp: new Date().toISOString(),
+            username: controller.username,
+            email: controller.email,
+            socketId: socket.id,
+            roomId: currentRoom,
+            duration,
+            commandsIssued: controller.commandsIssued,
+            score: controller.score,
+            reason
+          });
+
           room.removeController(socket.id);
 
           // Notify others that player left the game
@@ -528,6 +595,20 @@ io.on('connection', (socket) => {
             // Find the socket for the promoted player
             const promotedSocket = io.sockets.sockets.get(promotedPlayer.socketId);
             if (promotedSocket) {
+              // Log promotion event
+              const queueDuration = Date.now() - promotedPlayer.joinedQueueAt;
+
+              Logger.logPlayer({
+                event: 'player_promoted',
+                timestamp: new Date().toISOString(),
+                username: promotedPlayer.username,
+                email: promotedPlayer.email,
+                socketId: promotedPlayer.socketId,
+                roomId: currentRoom,
+                duration: queueDuration, // time spent in queue
+                queuePosition: promotedPlayer.position
+              });
+
               // Add as active controller
               const newController = room.addController(
                 promotedPlayer.socketId,
@@ -564,7 +645,26 @@ io.on('connection', (socket) => {
           // Delete room if empty
           gameEngine.deleteRoomIfEmpty(currentRoom);
         } else if (queuedPlayer !== null) {
-          // Queued player disconnected
+          // Queued player disconnected - get player info before removing
+          const queuedPlayers = room.getQueuedPlayers();
+          const playerInfo = queuedPlayers.find(p => p.socketId === socket.id);
+
+          if (playerInfo) {
+            const duration = joinedAt ? Date.now() - joinedAt : undefined;
+
+            Logger.logPlayer({
+              event: 'player_disconnected',
+              timestamp: new Date().toISOString(),
+              username: playerInfo.username,
+              email: playerInfo.email,
+              socketId: socket.id,
+              roomId: currentRoom,
+              queuePosition: playerInfo.position,
+              duration,
+              reason
+            });
+          }
+
           room.removeFromQueue(socket.id);
 
           // Update queue positions for remaining queued players
@@ -579,6 +679,9 @@ io.on('connection', (socket) => {
           });
         }
       }
+    } else {
+      // Player disconnected without joining a room
+      Logger.info(`Client disconnected: ${socket.id}, reason: ${reason}`);
     }
   });
 });

@@ -2,6 +2,8 @@ import { useRef, useEffect, useState } from 'react';
 import { Aircraft, RADAR_CONFIG, Airport, GameEvent, Waypoint, WeatherCell } from 'shared';
 import styles from './RadarDisplay.module.css';
 import { ShaderRenderer, ShaderSettings } from '../../utils/ShaderRenderer';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
+import { getTapTolerance, getAircraftIconSize, getFontScale } from '../../utils/deviceDetection';
 
 interface RadarDisplayProps {
   aircraft: Aircraft[];
@@ -44,6 +46,60 @@ export function RadarDisplay({
   const eventsRef = useRef<GameEvent[]>(events);
   const selectedIdRef = useRef<string | null>(selectedAircraftId || null);
 
+  // Zoom and pan state for touch gestures
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+
+  // Touch gesture handling
+  const touchGestures = useTouchGestures(webglCanvasRef, {
+    onZoomChange: setZoom,
+    onPanChange: (x, y) => {
+      setPanX(x);
+      setPanY(y);
+    },
+    onTap: (x, y) => {
+      // Handle tap for aircraft selection
+      if (!onAircraftSelect || !webglCanvasRef.current) return;
+
+      const tapTolerance = getTapTolerance();
+
+      // Check if tap is near any aircraft
+      for (const ac of aircraftRef.current) {
+        const screenPos = worldToScreen(ac.position, canvasSize.width, canvasSize.height, zoom, panX, panY);
+        const dist = Math.sqrt((x - screenPos.x) ** 2 + (y - screenPos.y) ** 2);
+
+        if (dist < tapTolerance) {
+          onAircraftSelect(ac.id);
+          return;
+        }
+      }
+
+      // Tap on empty space deselects
+      onAircraftSelect('');
+    },
+    onDoubleTap: (x, y) => {
+      // Double-tap to center and zoom
+      if (!webglCanvasRef.current) return;
+
+      // Calculate the world position of the tap
+      // This is the inverse of worldToScreen
+      const centerX = canvasSize.width / 2;
+      const centerY = canvasSize.height / 2;
+
+      // Toggle zoom: zoom in to 2x, or reset to 1x if already zoomed
+      const targetZoom = zoom > 1.5 ? 1 : 2;
+
+      // Calculate pan offset to center the tapped position
+      const newPanX = (centerX - x) * 0.5;
+      const newPanY = (centerY - y) * 0.5;
+
+      setZoom(targetZoom);
+      setPanX(newPanX);
+      setPanY(newPanY);
+    },
+  });
+
   // CRT shader settings (all effects disabled for maximum text clarity)
   const shaderSettings = useRef<ShaderSettings>({
     scanlineIntensity: 0.0,         // Disabled
@@ -77,6 +133,11 @@ export function RadarDisplay({
   useEffect(() => {
     selectedIdRef.current = selectedAircraftId || null;
   }, [selectedAircraftId]);
+
+  // Attach touch gesture listeners
+  useEffect(() => {
+    return touchGestures.attachListeners();
+  }, [touchGestures]);
 
   // Initialize WebGL shader renderer and offscreen canvas
   useEffect(() => {
@@ -129,8 +190,23 @@ export function RadarDisplay({
     };
 
     updateSize();
+
+    // Use ResizeObserver to detect parent container size changes (sidebar collapse/expand)
+    const resizeObserver = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    if (webglCanvasRef.current?.parentElement) {
+      resizeObserver.observe(webglCanvasRef.current.parentElement);
+    }
+
+    // Also listen to window resize for orientation changes
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
   }, []);
 
   // Continuous render loop using requestAnimationFrame
@@ -153,16 +229,16 @@ export function RadarDisplay({
       ctx.fillRect(0, 0, width, height);
 
       // Draw range rings
-      drawRangeRings(ctx, width, height);
+      drawRangeRings(ctx, width, height, zoom, panX, panY);
 
       // Draw center cross
-      drawCenterCross(ctx, width, height);
+      drawCenterCross(ctx, width, height, zoom, panX, panY);
 
       // Draw weather (render behind other elements)
       const currentWeather = weatherRef.current;
       if (currentWeather.length > 0) {
         currentWeather.forEach((weatherCell) => {
-          drawWeather(ctx, weatherCell, width, height);
+          drawWeather(ctx, weatherCell, width, height, zoom, panX, panY);
         });
       }
 
@@ -170,7 +246,7 @@ export function RadarDisplay({
       const currentAirports = airportsRef.current;
       if (currentAirports.length > 0) {
         currentAirports.forEach((airport) => {
-          drawAirport(ctx, airport, width, height);
+          drawAirport(ctx, airport, width, height, zoom, panX, panY);
         });
       }
 
@@ -178,7 +254,7 @@ export function RadarDisplay({
       const currentWaypoints = waypointsRef.current;
       if (currentWaypoints.length > 0) {
         currentWaypoints.forEach((waypoint) => {
-          drawWaypoint(ctx, waypoint, width, height);
+          drawWaypoint(ctx, waypoint, width, height, zoom, panX, panY);
         });
       }
 
@@ -202,7 +278,10 @@ export function RadarDisplay({
             width,
             height,
             selectedIdRef.current === ac.id,
-            isInConflict
+            isInConflict,
+            zoom,
+            panX,
+            panY
           );
         });
       }
@@ -227,9 +306,9 @@ export function RadarDisplay({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [canvasSize]); // Only restart when canvas size changes
+  }, [canvasSize, zoom, panX, panY]); // Restart when canvas size or transform changes
 
-  // Handle click
+  // Handle click (for mouse/desktop)
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onAircraftSelect || !webglCanvasRef.current) return;
 
@@ -238,12 +317,14 @@ export function RadarDisplay({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    const clickTolerance = getTapTolerance();
+
     // Check if click is near any aircraft (use ref to get current data)
     for (const ac of aircraftRef.current) {
-      const screenPos = worldToScreen(ac.position, canvas.width, canvas.height);
+      const screenPos = worldToScreen(ac.position, canvas.width, canvas.height, zoom, panX, panY);
       const dist = Math.sqrt((x - screenPos.x) ** 2 + (y - screenPos.y) ** 2);
 
-      if (dist < 15) { // Click tolerance
+      if (dist < clickTolerance) {
         onAircraftSelect(ac.id);
         return;
       }
@@ -308,25 +389,35 @@ function formatBonusTime(seconds: number): string {
 function worldToScreen(
   worldPos: { x: number; y: number },
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number = 1,
+  panOffsetX: number = 0,
+  panOffsetY: number = 0
 ): { x: number; y: number } {
-  // Simple mapping: world coordinates to screen coordinates
+  // Simple mapping: world coordinates to screen coordinates with zoom and pan
   // Assuming world is centered at (0,0) and ranges from -20 to 20 NM
-  const scale = Math.min(width, height) / 40; // 40 NM total range
+  const baseScale = Math.min(width, height) / 40; // 40 NM total range
+  const scale = baseScale * zoomLevel;
+
   return {
-    x: width / 2 + worldPos.x * scale,
-    y: height / 2 - worldPos.y * scale, // Invert Y for screen coordinates
+    x: width / 2 + worldPos.x * scale + panOffsetX,
+    y: height / 2 - worldPos.y * scale + panOffsetY, // Invert Y for screen coordinates
   };
 }
 
 function drawRangeRings(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const scale = Math.min(width, height) / 40;
+  const centerX = width / 2 + panOffsetX;
+  const centerY = height / 2 + panOffsetY;
+  const baseScale = Math.min(width, height) / 40;
+  const scale = baseScale * zoomLevel;
+  const fontScale = getFontScale();
 
   ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
   ctx.lineWidth = 1;
@@ -339,7 +430,7 @@ function drawRangeRings(
 
     // Draw range label
     ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
-    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.font = `${Math.floor(10 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillText(`${range}NM`, centerX + radius - 25, centerY - 5);
   });
 }
@@ -347,11 +438,14 @@ function drawRangeRings(
 function drawCenterCross(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const size = 10;
+  const centerX = width / 2 + panOffsetX;
+  const centerY = height / 2 + panOffsetY;
+  const size = 10 * zoomLevel;
 
   ctx.strokeStyle = RADAR_CONFIG.PRIMARY_COLOR;
   ctx.lineWidth = 2;
@@ -368,9 +462,13 @@ function drawAirport(
   ctx: CanvasRenderingContext2D,
   airport: Airport,
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const screenPos = worldToScreen(airport.position, width, height);
+  const screenPos = worldToScreen(airport.position, width, height, zoomLevel, panOffsetX, panOffsetY);
+  const fontScale = getFontScale();
 
   // Draw airport symbol (square with cross)
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -383,7 +481,7 @@ function drawAirport(
 
   // Draw runways
   airport.runways.forEach((runway) => {
-    const runwayScreenPos = worldToScreen(runway.position, width, height);
+    const runwayScreenPos = worldToScreen(runway.position, width, height, zoomLevel, panOffsetX, panOffsetY);
     ctx.save();
     ctx.translate(runwayScreenPos.x, runwayScreenPos.y);
     ctx.rotate((runway.heading * Math.PI) / 180);
@@ -391,8 +489,8 @@ function drawAirport(
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, -6);
-    ctx.lineTo(0, 6);
+    ctx.moveTo(0, -6 * zoomLevel);
+    ctx.lineTo(0, 6 * zoomLevel);
     ctx.stroke();
 
     ctx.restore();
@@ -400,7 +498,7 @@ function drawAirport(
 
   // Draw airport code
   ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.font = `${Math.floor(11 * fontScale)}px "Share Tech Mono", monospace`;
   ctx.fillText(airport.code, screenPos.x + 12, screenPos.y + 4);
 }
 
@@ -408,16 +506,20 @@ function drawWaypoint(
   ctx: CanvasRenderingContext2D,
   waypoint: Waypoint,
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const screenPos = worldToScreen(waypoint.position, width, height);
+  const screenPos = worldToScreen(waypoint.position, width, height, zoomLevel, panOffsetX, panOffsetY);
+  const fontScale = getFontScale();
 
   // Draw waypoint symbol (diamond)
   ctx.strokeStyle = 'rgba(100, 200, 255, 0.7)'; // Light blue
   ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
   ctx.lineWidth = 1.5;
 
-  const size = 5;
+  const size = 5 * zoomLevel;
   ctx.beginPath();
   ctx.moveTo(screenPos.x, screenPos.y - size); // Top
   ctx.lineTo(screenPos.x + size, screenPos.y); // Right
@@ -429,12 +531,12 @@ function drawWaypoint(
 
   // Draw waypoint name
   ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
-  ctx.font = '9px "Share Tech Mono", monospace';
+  ctx.font = `${Math.floor(9 * fontScale)}px "Share Tech Mono", monospace`;
   ctx.fillText(waypoint.name, screenPos.x + 8, screenPos.y + 3);
 
   // Draw altitude restriction if present
   if (waypoint.altitude !== undefined) {
-    ctx.font = '8px "Share Tech Mono", monospace';
+    ctx.font = `${Math.floor(8 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillStyle = 'rgba(100, 200, 255, 0.6)';
     ctx.fillText(`${waypoint.altitude}'`, screenPos.x + 8, screenPos.y + 12);
   }
@@ -444,10 +546,14 @@ function drawWeather(
   ctx: CanvasRenderingContext2D,
   weatherCell: WeatherCell,
   width: number,
-  height: number
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const screenPos = worldToScreen(weatherCell.position, width, height);
-  const scale = Math.min(width, height) / 40;
+  const screenPos = worldToScreen(weatherCell.position, width, height, zoomLevel, panOffsetX, panOffsetY);
+  const baseScale = Math.min(width, height) / 40;
+  const scale = baseScale * zoomLevel;
   const radius = weatherCell.radius * scale;
 
   // Color and style based on weather type
@@ -499,9 +605,14 @@ function drawAircraft(
   width: number,
   height: number,
   isSelected: boolean,
-  isInConflict: boolean
+  isInConflict: boolean,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
 ) {
-  const screenPos = worldToScreen(aircraft.position, width, height);
+  const screenPos = worldToScreen(aircraft.position, width, height, zoomLevel, panOffsetX, panOffsetY);
+  const fontScale = getFontScale();
+  const iconSize = getAircraftIconSize();
 
   // Determine color based on state
   let aircraftColor: string = RADAR_CONFIG.PRIMARY_COLOR;
@@ -524,7 +635,7 @@ function drawAircraft(
     ctx.beginPath();
 
     aircraft.trailHistory.forEach((pos, i) => {
-      const trailPos = worldToScreen(pos, width, height);
+      const trailPos = worldToScreen(pos, width, height, zoomLevel, panOffsetX, panOffsetY);
       if (i === 0) {
         ctx.moveTo(trailPos.x, trailPos.y);
       } else {
@@ -586,7 +697,7 @@ function drawAircraft(
   // Triangle nose points up (0, -size), so rotation matches heading directly
   ctx.rotate((aircraft.heading * Math.PI) / 180);
 
-  const size = RADAR_CONFIG.AIRCRAFT_SIZE;
+  const size = iconSize * zoomLevel;
 
   // Apply crash fade out opacity
   ctx.globalAlpha = crashOpacity;
@@ -614,10 +725,10 @@ function drawAircraft(
   ctx.save();
   ctx.globalAlpha = crashOpacity; // Apply crash fade to data tag
   ctx.fillStyle = aircraftColor;
-  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.font = `${Math.floor(11 * fontScale)}px "Share Tech Mono", monospace`;
   ctx.fillText(aircraft.callsign, screenPos.x + 12, screenPos.y - 5);
 
-  ctx.font = '10px "Share Tech Mono", monospace';
+  ctx.font = `${Math.floor(10 * fontScale)}px "Share Tech Mono", monospace`;
   ctx.fillText(
     `FL${Math.round(aircraft.altitude / 100).toString().padStart(3, '0')}`,
     screenPos.x + 12,
@@ -628,7 +739,7 @@ function drawAircraft(
   let yOffset = 18;
   if (aircraft.flightPhase === 'approach') {
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 9px "Share Tech Mono", monospace';
+    ctx.font = `bold ${Math.floor(9 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillText('APPR', screenPos.x + 12, screenPos.y + yOffset);
     yOffset += 11;
   }
@@ -636,17 +747,17 @@ function drawAircraft(
   // Draw emergency indicator
   if (aircraft.emergencyType === 'fuel') {
     ctx.fillStyle = '#FF0000';
-    ctx.font = 'bold 10px "Share Tech Mono", monospace';
+    ctx.font = `bold ${Math.floor(10 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillText(`FUEL ${aircraft.fuel.toFixed(0)}%`, screenPos.x + 12, screenPos.y + yOffset);
     yOffset += 11;
   } else if (aircraft.emergencyType) {
     ctx.fillStyle = '#FF0000';
-    ctx.font = 'bold 10px "Share Tech Mono", monospace';
+    ctx.font = `bold ${Math.floor(10 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillText('EMERG', screenPos.x + 12, screenPos.y + yOffset);
     yOffset += 11;
   } else if (aircraft.fuel < 30) {
     ctx.fillStyle = '#FF6600';
-    ctx.font = '9px "Share Tech Mono", monospace';
+    ctx.font = `${Math.floor(9 * fontScale)}px "Share Tech Mono", monospace`;
     ctx.fillText(`${aircraft.fuel.toFixed(0)}%`, screenPos.x + 12, screenPos.y + yOffset);
   }
 

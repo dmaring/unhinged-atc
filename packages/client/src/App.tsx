@@ -19,9 +19,15 @@ import { GameEndModal } from './components/GameEndModal'
 import { ChaosAlert } from './components/ChaosAlert'
 import { AdminLogin } from './components/AdminLogin'
 import { AdminPanel } from './components/AdminPanel'
+import { BottomSheet } from './components/BottomSheet'
+import { PerformancePanel } from './components/PerformancePanel'
+import { MobileTutorial } from './components/MobileTutorial'
+import { QuickActionBar } from './components/QuickActionBar'
+import { OrientationProvider, useOrientation } from './contexts/OrientationProvider'
 import { GameEndData } from 'shared'
 
-function App() {
+// Separate game content component to use orientation hook
+function GameContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   // Use sessionStorage for credentials (persists across game restarts, cleared when tab closes)
   const [username, setUsername] = useSessionStorage<string>('atc_username', '')
@@ -293,6 +299,127 @@ function App() {
   }
 
   // Show game UI when authenticated and in game
+  return <GameUI
+    gameState={gameState}
+    selectedAircraftId={selectedAircraftId}
+    setSelectedAircraft={setSelectedAircraft}
+    aircraftArray={aircraftArray}
+    airports={airports}
+    waypoints={waypoints}
+    weather={weather}
+    events={events}
+    currentSpeed={currentSpeed}
+    chaosAbilities={chaosAbilities}
+    selectedAircraft={selectedAircraft}
+    sendCommand={sendCommand}
+    setTimeScale={setTimeScale}
+    sendChaosCommand={sendChaosCommand}
+    spawnAircraft={spawnAircraft}
+    showResetModal={showResetModal}
+    handleResetConfirm={handleResetConfirm}
+    handleResetCancel={handleResetCancel}
+    gameEndData={gameEndData}
+    gameEndCountdown={gameEndCountdown}
+    chaosAlertName={chaosAlertName}
+    chaosAlertDescription={chaosAlertDescription}
+    isConnected={isConnected}
+    connectionError={connectionError}
+  />;
+}
+
+// Game UI component that uses orientation hook
+function GameUI({
+  gameState,
+  selectedAircraftId,
+  setSelectedAircraft,
+  aircraftArray,
+  airports,
+  waypoints,
+  weather,
+  events,
+  currentSpeed,
+  chaosAbilities,
+  selectedAircraft,
+  sendCommand,
+  setTimeScale,
+  sendChaosCommand,
+  spawnAircraft,
+  showResetModal,
+  handleResetConfirm,
+  handleResetCancel,
+  gameEndData,
+  gameEndCountdown,
+  chaosAlertName,
+  chaosAlertDescription,
+  isConnected,
+  connectionError,
+}: any) {
+  const { orientation, isMobileLayout } = useOrientation();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [bottomSheetHeight, setBottomSheetHeight] = useState(120); // Default to initial snap point height
+
+  const isMobilePortrait = isMobileLayout && orientation === 'portrait';
+  const isMobileLandscape = isMobileLayout && orientation === 'landscape';
+
+  // Quick action handlers for mobile
+  const handleQuickTurnLeft = () => {
+    if (!selectedAircraft) return;
+    const newHeading = (selectedAircraft.targetHeading - 10 + 360) % 360;
+    sendCommand(selectedAircraft.id, 'turn', { heading: newHeading });
+  };
+
+  const handleQuickTurnRight = () => {
+    if (!selectedAircraft) return;
+    const newHeading = (selectedAircraft.targetHeading + 10) % 360;
+    sendCommand(selectedAircraft.id, 'turn', { heading: newHeading });
+  };
+
+  const handleQuickRandomChaos = () => {
+    const available = Object.entries(chaosAbilities)
+      .filter(([_, ability]) => ability.available)
+      .map(([key]) => key);
+
+    if (available.length === 0) return;
+
+    const randomChaos = available[Math.floor(Math.random() * available.length)];
+    sendChaosCommand(randomChaos);
+  };
+
+  // Handle bottom sheet snap point changes
+  const handleBottomSheetChange = (_snapPoint: number, height: number) => {
+    setBottomSheetHeight(height);
+  };
+
+  // Get available chaos abilities for quick action bar
+  const availableChaosAbilities = Object.entries(chaosAbilities)
+    .filter(([_, ability]) => ability.available)
+    .map(([key]) => key);
+
+  // Control panels content (reused in sidebar or bottom sheet)
+  const controlPanels = (
+    <>
+      <PerformancePanel />
+      <SpeedControl
+        currentSpeed={currentSpeed}
+        onSpeedChange={setTimeScale}
+      />
+      <SpawnControl
+        onSpawnAircraft={spawnAircraft}
+      />
+      <ChaosPanel
+        chaosAbilities={chaosAbilities}
+        onChaosCommand={sendChaosCommand}
+      />
+      <ControlPanel
+        selectedAircraft={selectedAircraft}
+        allAircraft={aircraftArray}
+        onCommand={sendCommand}
+        onAircraftSelect={setSelectedAircraft}
+      />
+      <NotificationPanel />
+    </>
+  );
+
   return (
     <div className="app">
       <div className="header">
@@ -324,25 +451,45 @@ function App() {
             nextBonusAt={gameState?.nextBonusAt}
           />
         </div>
-        <div className="control-section">
-          <SpeedControl
-            currentSpeed={currentSpeed}
-            onSpeedChange={setTimeScale}
-          />
-          <SpawnControl
-            onSpawnAircraft={spawnAircraft}
-          />
-          <ChaosPanel
-            chaosAbilities={chaosAbilities}
-            onChaosCommand={sendChaosCommand}
-          />
-          <ControlPanel
-            selectedAircraft={selectedAircraft}
-            onCommand={sendCommand}
-          />
-          <NotificationPanel />
-        </div>
+
+        {/* Desktop/Tablet/Mobile Landscape: Traditional sidebar */}
+        {!isMobilePortrait && (
+          <div className={`control-section ${isMobileLandscape && isSidebarCollapsed ? 'collapsed' : ''}`}>
+            {isMobileLandscape && (
+              <button
+                className="sidebar-toggle"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {isSidebarCollapsed ? '◀' : '▶'}
+              </button>
+            )}
+            {!isSidebarCollapsed && controlPanels}
+          </div>
+        )}
+
+        {/* Mobile Portrait: Bottom sheet */}
+        {isMobilePortrait && (
+          <BottomSheet
+            snapPoints={[0, 120, window.innerHeight * 0.5, window.innerHeight * 0.85]}
+            initialSnapPoint={1}
+            onSnapPointChange={handleBottomSheetChange}
+          >
+            {controlPanels}
+          </BottomSheet>
+        )}
       </div>
+
+      {/* Quick action bar for mobile */}
+      <QuickActionBar
+        selectedAircraft={selectedAircraft}
+        onTurnLeft={handleQuickTurnLeft}
+        onTurnRight={handleQuickTurnRight}
+        onRandomChaos={handleQuickRandomChaos}
+        availableChaos={availableChaosAbilities}
+        bottomPosition={bottomSheetHeight + 20}
+      />
+
       <div className="scanline"></div>
       <ResetConfirmationModal
         isOpen={showResetModal}
@@ -357,8 +504,18 @@ function App() {
         chaosName={chaosAlertName}
         chaosDescription={chaosAlertDescription}
       />
+      <MobileTutorial />
     </div>
   )
+}
+
+// Main App component with OrientationProvider wrapper
+function App() {
+  return (
+    <OrientationProvider>
+      <GameContent />
+    </OrientationProvider>
+  );
 }
 
 export default App

@@ -1,0 +1,111 @@
+.panel {
+  background-color: rgba(0, 0, 0, 0.9);
+  border: 2px solid var(--primary-green);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.collapsed {
+  /* No additional styling needed - content is hidden */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  background-color: rgba(0, 50, 0, 0.3);
+}
+
+.header:hover {
+  background-color: rgba(0, 50, 0, 0.5);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.collapseButton {
+  background: transparent;
+  border: none;
+  color: var(--primary-green);
+  font-size: 12px;
+  padding: 4px;
+  cursor: pointer;
+  min-width: auto;
+  min-height: auto;
+}
+
+.content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metricRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.label {
+  opacity: 0.8;
+}
+
+.value {
+  font-weight: bold;
+  color: var(--info-cyan);
+  text-shadow: 0 0 5px var(--info-cyan);
+}
+
+.value.warning {
+  color: var(--warning-orange);
+  text-shadow: 0 0 5px var(--warning-orange);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--primary-green);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary-green);
+}
+
+.suggestion {
+  font-size: 12px;
+  color: var(--warning-orange);
+  padding: 8px;
+  background-color: rgba(255, 170, 0, 0.1);
+  border: 1px solid var(--warning-orange);
+  border-radius: 4px;
+  text-align: center;
+}
