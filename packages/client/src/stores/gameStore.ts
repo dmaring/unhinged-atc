@@ -38,6 +38,13 @@ export const useGameStore = create<GameStore>((set) => ({
     set((store) => {
       if (!store.gameState) return store;
 
+      // Defensive: Only update aircraft that exist in current game state
+      // This prevents re-adding old aircraft after a game reset
+      if (!store.gameState.aircraft[id]) {
+        console.warn('[gameStore] Ignoring update for unknown aircraft:', id);
+        return store;
+      }
+
       return {
         gameState: {
           ...store.gameState,

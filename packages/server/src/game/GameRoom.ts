@@ -73,6 +73,7 @@ export class GameRoom {
     this.gameState = {
       roomId,
       createdAt: Date.now(),
+      gameEpoch: 0, // Increments on reset to invalidate stale deltas
       aircraft: {},
       airspace: {
         bounds: {
@@ -161,11 +162,12 @@ export class GameRoom {
    */
   update(deltaTime: number): StateDelta {
     if (this.gameState.isPaused) {
-      return { timestamp: Date.now() };
+      return { timestamp: Date.now(), gameEpoch: this.gameState.gameEpoch };
     }
 
     const delta: StateDelta = {
       timestamp: Date.now(),
+      gameEpoch: this.gameState.gameEpoch, // Include epoch to validate delta freshness
       aircraftUpdates: [],
     };
 
@@ -1213,8 +1215,9 @@ export class GameRoom {
    */
   resetForNextGame(): void {
     const roomId = this.gameState.roomId;
+    const newEpoch = this.gameState.gameEpoch + 1; // Increment epoch to invalidate old deltas
 
-    Logger.info('Resetting for next game (preserving queue)', { roomId });
+    Logger.info('Resetting for next game (preserving queue)', { roomId, newEpoch });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1234,6 +1237,7 @@ export class GameRoom {
     this.gameState = {
       roomId,
       createdAt: Date.now(),
+      gameEpoch: newEpoch,
       aircraft: {},
       airspace: this.gameState.airspace, // Preserve airspace definition
       controllers: {}, // Clear all controllers
@@ -1275,8 +1279,9 @@ export class GameRoom {
    */
   resetGameState(): void {
     const roomId = this.gameState.roomId;
+    const newEpoch = this.gameState.gameEpoch + 1; // Increment epoch to invalidate old deltas
 
-    Logger.info('Resetting game state for restart', { roomId });
+    Logger.info('Resetting game state for restart', { roomId, newEpoch });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1296,6 +1301,7 @@ export class GameRoom {
     this.gameState = {
       roomId,
       createdAt: Date.now(),
+      gameEpoch: newEpoch,
       aircraft: {},
       airspace: this.gameState.airspace, // Preserve airspace definition
       controllers: {}, // Clear all controllers
@@ -1339,8 +1345,9 @@ export class GameRoom {
   reset(): GameState {
     const roomId = this.gameState.roomId;
     const controllers = this.gameState.controllers;
+    const newEpoch = this.gameState.gameEpoch + 1; // Increment epoch to invalidate old deltas
 
-    Logger.info('Resetting game', { roomId });
+    Logger.info('Resetting game', { roomId, newEpoch });
 
     // Clear tracking sets
     this.fuelWarnings.clear();
@@ -1356,6 +1363,7 @@ export class GameRoom {
     this.gameState = {
       roomId,
       createdAt: Date.now(),
+      gameEpoch: newEpoch,
       aircraft: {},
       airspace: {
         bounds: {

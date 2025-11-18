@@ -60,6 +60,7 @@ export interface GameState {
   // Room info
   roomId: string;
   createdAt: number;
+  gameEpoch: number; // Increments on reset to invalidate stale deltas
 
   // Aircraft (using Map on server, convert to array for client)
   aircraft: Record<string, Aircraft>; // Changed from Map for JSON serialization
@@ -97,6 +98,7 @@ export interface GameState {
 
 export interface StateDelta {
   timestamp: number;
+  gameEpoch?: number; // Game epoch to validate delta freshness
   aircraftUpdates?: Partial<Aircraft>[];
   newAircraft?: Aircraft[];
   removedAircraftIds?: string[];

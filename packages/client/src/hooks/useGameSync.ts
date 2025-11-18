@@ -52,6 +52,18 @@ export function useGameSync(
 
     // Handle state updates (60 FPS from server)
     const onStateUpdate = (delta: StateDelta) => {
+      // Validate delta epoch to prevent processing stale data after game reset
+      const currentGameState = useGameStore.getState().gameState;
+      if (currentGameState && delta.gameEpoch !== undefined) {
+        if (delta.gameEpoch < currentGameState.gameEpoch) {
+          console.warn('[GameSync] Rejecting stale delta from old game epoch:', {
+            deltaEpoch: delta.gameEpoch,
+            currentEpoch: currentGameState.gameEpoch
+          });
+          return; // Ignore this delta - it's from before the reset
+        }
+      }
+
       // Update aircraft
       delta.aircraftUpdates?.forEach((update) => {
         if (update.id) {
