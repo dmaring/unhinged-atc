@@ -138,3 +138,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 article-substack.md
+
+# Claude Code workspace metadata
+.claude/
+
+# Playwright screenshot cache
+.playwright-mcp/
+
+# Playwright test results
+test-results/
