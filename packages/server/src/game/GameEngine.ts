@@ -60,6 +60,16 @@ export class GameEngine {
     this.rooms.forEach((room, roomId) => {
       const delta = room.update(deltaTime);
 
+      // Log delta broadcast for debugging (only log every 60th frame to reduce noise)
+      if (Math.random() < 0.016) { // ~1 FPS logging
+        console.log(`[GameEngine] Broadcasting delta for room ${roomId}:`, {
+          epoch: delta.gameEpoch,
+          aircraftUpdates: delta.aircraftUpdates?.length || 0,
+          newAircraft: delta.newAircraft?.length || 0,
+          removedAircraft: delta.removedAircraftIds?.length || 0,
+        });
+      }
+
       // Broadcast state delta to all clients in room
       // Always emit delta (clients can decide if they need to act on it)
       this.io.to(roomId).emit('state_update', delta);
@@ -100,7 +110,8 @@ export class GameEngine {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
-    console.log(`[GameEngine] Restarting game in room ${roomId}`);
+    const oldEpoch = room.getGameState().gameEpoch;
+    console.log(`[GameEngine] Restarting game in room ${roomId} (current epoch: ${oldEpoch})`);
 
     // Get all connected sockets in this room
     const socketsInRoom = this.io.sockets.adapter.rooms.get(roomId);
@@ -118,12 +129,14 @@ export class GameEngine {
 
     // Reset the room for next game (clears active controllers, preserves queue)
     room.resetForNextGame();
+    const newEpoch = room.getGameState().gameEpoch;
+    console.log(`[GameEngine] Room reset complete: epoch ${oldEpoch} → ${newEpoch}`);
 
     // Broadcast the new game state to ALL clients in the room
     // This ensures clients sync with the new epoch and aircraft
     const newGameState = room.getGameState();
     this.io.to(roomId).emit('game_reset', newGameState);
-    console.log(`[GameEngine] Broadcasted new game state (epoch ${newGameState.gameEpoch}) to all clients in room ${roomId}`);
+    console.log(`[GameEngine] Broadcasted game_reset event with epoch ${newGameState.gameEpoch} to all clients in room ${roomId}`);
 
     // Promote queued players to fill the new game
     const maxPlayers = GAME_CONFIG.MAX_CONTROLLERS_PER_ROOM;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { GameState, StateDelta, Controller, ChaosType, GameEndData } from 'shared';
 import { useGameStore } from '../stores/gameStore';
@@ -37,6 +37,9 @@ export function useGameSync(
   const setQueueInfo = useGameStore((state) => state.setQueueInfo);
   const resetStore = useGameStore((state) => state.reset);
 
+  // Watchdog: Track last state update time to detect stale connections
+  const lastUpdateTimeRef = useRef<number>(Date.now());
+
   useEffect(() => {
     if (!socket || !isConnected || !username || !email) return;
 
@@ -61,6 +64,9 @@ export function useGameSync(
 
     // Handle state updates (60 FPS from server)
     const onStateUpdate = (delta: StateDelta) => {
+      // Update watchdog timer - we received an update
+      lastUpdateTimeRef.current = Date.now();
+
       // Validate delta epoch to prevent processing stale data after game reset
       const currentGameState = useGameStore.getState().gameState;
       if (currentGameState && delta.gameEpoch !== undefined) {
@@ -289,8 +295,25 @@ export function useGameSync(
     socket.on('game_restarting', onGameRestarting);
     socket.on('return_to_login', onReturnToLogin);
 
+    // Watchdog timer: Check for stale connections every 2 seconds
+    const watchdogInterval = setInterval(() => {
+      const timeSinceLastUpdate = Date.now() - lastUpdateTimeRef.current;
+      const STALE_THRESHOLD = 3000; // 3 seconds without updates is suspicious
+
+      if (timeSinceLastUpdate > STALE_THRESHOLD) {
+        console.warn('[GameSync] No state updates received for', timeSinceLastUpdate / 1000, 'seconds');
+        console.warn('[GameSync] Connection may be stale. Current state:', {
+          isConnected,
+          hasGameState: !!useGameStore.getState().gameState,
+          gameEpoch: useGameStore.getState().gameState?.gameEpoch,
+          aircraftCount: Object.keys(useGameStore.getState().gameState?.aircraft || {}).length,
+        });
+      }
+    }, 2000); // Check every 2 seconds
+
     // Cleanup
     return () => {
+      clearInterval(watchdogInterval);
       socket.off('game_state', onGameState);
       socket.off('state_update', onStateUpdate);
       // socket.off('game_event', onGameEvent); // REMOVED: events now only come via delta.newEvents
