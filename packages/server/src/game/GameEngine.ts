@@ -119,6 +119,12 @@ export class GameEngine {
     // Reset the room for next game (clears active controllers, preserves queue)
     room.resetForNextGame();
 
+    // Broadcast the new game state to ALL clients in the room
+    // This ensures clients sync with the new epoch and aircraft
+    const newGameState = room.getGameState();
+    this.io.to(roomId).emit('game_reset', newGameState);
+    console.log(`[GameEngine] Broadcasted new game state (epoch ${newGameState.gameEpoch}) to all clients in room ${roomId}`);
+
     // Promote queued players to fill the new game
     const maxPlayers = GAME_CONFIG.MAX_CONTROLLERS_PER_ROOM;
     for (let i = 0; i < maxPlayers; i++) {

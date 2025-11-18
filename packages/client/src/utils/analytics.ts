@@ -2,18 +2,31 @@ import ReactGA from 'react-ga4';
 
 const isProduction = import.meta.env.PROD;
 const measurementId = import.meta.env.VITE_GA_MEASUREMENT_ID;
+const enableAnalytics = import.meta.env.VITE_ENABLE_ANALYTICS === 'true';
+
+// Check if analytics should be enabled
+const shouldEnableAnalytics = () => {
+  return (isProduction || enableAnalytics) && measurementId && measurementId !== 'G-XXXXXXXXXX';
+};
 
 // Initialize Google Analytics 4
 export const initGA = () => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.initialize(measurementId, {
       gaOptions: {
         anonymize_ip: true, // GDPR compliance
       },
     });
-    console.log('[Analytics] Google Analytics initialized');
+    console.log('[Analytics] Google Analytics initialized', {
+      mode: isProduction ? 'production' : 'development',
+      enabled: true
+    });
   } else {
-    console.log('[Analytics] Skipped - not in production or no valid measurement ID');
+    console.log('[Analytics] Skipped', {
+      isProduction,
+      enableAnalytics,
+      hasMeasurementId: !!measurementId
+    });
   }
 };
 
@@ -24,7 +37,7 @@ export const trackEvent = (
   label?: string,
   value?: number
 ) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event({
       category,
       action,
@@ -36,7 +49,7 @@ export const trackEvent = (
 
 // Track page views (useful for hash-based routing)
 export const trackPageView = (path: string) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.send({ hitType: 'pageview', page: path });
   }
 };
@@ -51,7 +64,7 @@ export const trackGameEnded = (data: {
   roomId: string;
   controllerCount: number;
 }) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('game_ended', {
       game_end_reason: data.reason,
       score: data.finalScore,
@@ -66,7 +79,7 @@ export const trackGameEnded = (data: {
 
 // Track user login
 export const trackUserLogin = (username: string) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('login', {
       method: 'email',
       username_length: username.length, // Don't send actual username for privacy
@@ -80,7 +93,7 @@ export const trackCrash = (data: {
   roomId: string;
   controllerCount: number;
 }) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('aircraft_crash', {
       aircraft_count: data.aircraftCount,
       room_id: data.roomId,
@@ -91,7 +104,7 @@ export const trackCrash = (data: {
 
 // Track chaos ability usage
 export const trackChaosUsed = (chaosType: string) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('chaos_used', {
       chaos_type: chaosType,
     });
@@ -100,7 +113,7 @@ export const trackChaosUsed = (chaosType: string) => {
 
 // Track queue events
 export const trackQueueJoined = (position: number, totalInQueue: number) => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('queue_joined', {
       queue_position: position,
       total_in_queue: totalInQueue,
@@ -109,14 +122,14 @@ export const trackQueueJoined = (position: number, totalInQueue: number) => {
 };
 
 export const trackQueuePromoted = () => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('queue_promoted');
   }
 };
 
 // Track aircraft commands
 export const trackAircraftCommand = (commandType: 'turn' | 'altitude' | 'speed') => {
-  if (isProduction && measurementId && measurementId !== 'G-XXXXXXXXXX') {
+  if (shouldEnableAnalytics()) {
     ReactGA.event('aircraft_command', {
       command_type: commandType,
     });
