@@ -21,6 +21,7 @@ import { AdminLogin } from './components/AdminLogin'
 import { AdminPanel } from './components/AdminPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { PerformancePanel } from './components/PerformancePanel'
+import { PlayersPanel } from './components/PlayersPanel'
 import { MobileTutorial } from './components/MobileTutorial'
 import { QuickActionBar } from './components/QuickActionBar'
 import { OrientationProvider, useOrientation } from './contexts/OrientationProvider'
@@ -465,6 +466,7 @@ function GameUI({
       <SpawnControl
         onSpawnAircraft={spawnAircraft}
       />
+      <PlayersPanel />
       <ChaosPanel
         chaosAbilities={chaosAbilities}
         onChaosCommand={sendChaosCommand}

@@ -5,6 +5,7 @@ interface GameStore {
   // Game state
   gameState: GameState | null;
   selectedAircraftId: string | null;
+  queueInfo: { count: number; position: number | null } | null;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -18,12 +19,14 @@ interface GameStore {
   updateTimeScale: (timeScale: number) => void;
   updateChaosAbilities: (chaosAbilities: Record<string, { lastUsed: number; usageCount: number }>) => void;
   updateScoreMetrics: (metrics: { scoreUpdate?: number; planesCleared?: number; crashCount?: number; gameTime?: number; nextBonusAt?: number }) => void;
+  setQueueInfo: (queueInfo: { count: number; position: number | null } | null) => void;
   reset: () => void;
 }
 
 const initialState = {
   gameState: null,
   selectedAircraftId: null,
+  queueInfo: null,
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -168,6 +171,8 @@ export const useGameStore = create<GameStore>((set) => ({
         },
       };
     }),
+
+  setQueueInfo: (queueInfo) => set({ queueInfo }),
 
   reset: () => set(initialState),
 }));

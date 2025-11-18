@@ -34,6 +34,7 @@ export function useGameSync(
   const updateTimeScale = useGameStore((state) => state.updateTimeScale);
   const updateChaosAbilities = useGameStore((state) => state.updateChaosAbilities);
   const updateScoreMetrics = useGameStore((state) => state.updateScoreMetrics);
+  const setQueueInfo = useGameStore((state) => state.setQueueInfo);
   const resetStore = useGameStore((state) => state.reset);
 
   useEffect(() => {
@@ -193,16 +194,26 @@ export function useGameSync(
     // Queue event handlers
     const onQueueJoined = (data: { position: number; totalInQueue: number; activePlayerCount: number }) => {
       console.log('[GameSync] Queue joined:', data);
+      // Update store with queue info
+      setQueueInfo({ count: data.totalInQueue, position: data.position });
       queueCallbacks?.onQueueJoined?.(data);
     };
 
-    const onQueuePositionUpdated = (data: { position: number }) => {
+    const onQueuePositionUpdated = (data: { position: number; totalInQueue?: number }) => {
       console.log('[GameSync] Queue position updated:', data);
+      // Update position in store (and count if provided)
+      const currentQueue = useGameStore.getState().queueInfo;
+      setQueueInfo({
+        count: data.totalInQueue ?? currentQueue?.count ?? 0,
+        position: data.position
+      });
       queueCallbacks?.onQueuePositionUpdated?.(data);
     };
 
     const onPromotedFromQueue = () => {
       console.log('[GameSync] Promoted from queue');
+      // Clear queue info when promoted (player is now active)
+      setQueueInfo(null);
       queueCallbacks?.onPromotedFromQueue?.();
     };
 
