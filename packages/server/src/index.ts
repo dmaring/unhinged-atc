@@ -325,6 +325,14 @@ io.on('connection', (socket) => {
 
       // Send initial game state
       const gameState = room.getGameState();
+      const controllerIds = Object.keys(gameState.controllers);
+      Logger.info(`Sending game_state to ${username}`, {
+        socketId: socket.id,
+        roomId,
+        controllerCount: controllerIds.length,
+        controllerIds,
+        controllerUsernames: Object.values(gameState.controllers).map(c => c.username)
+      });
       socket.emit('game_state', gameState);
 
       // Notify others that a player entered the game
@@ -339,10 +347,10 @@ io.on('connection', (socket) => {
         controller: {
           id: controller.id,
           username: controller.username,
+          email: '', // Empty for privacy - email is only logged server-side
           joinedAt: controller.joinedAt,
           commandsIssued: controller.commandsIssued,
           score: controller.score,
-          // Email is intentionally omitted from broadcast
         },
       });
     } else if (room.canAddToQueue()) {

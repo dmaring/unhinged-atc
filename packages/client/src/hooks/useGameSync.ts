@@ -46,7 +46,16 @@ export function useGameSync(
 
     // Handle initial game state
     const onGameState = (state: GameState) => {
-      console.log('[GameSync] Received initial game state:', state);
+      const controllerCount = Object.keys(state.controllers).length;
+      const controllerUsernames = Object.values(state.controllers).map(c => c.username);
+      console.log('[GameSync] Received initial game state:', {
+        roomId: state.roomId,
+        controllerCount,
+        controllerUsernames,
+        aircraftCount: Object.keys(state.aircraft).length,
+        gameEpoch: state.gameEpoch
+      });
+      console.log('[GameSync] Full controllers object:', state.controllers);
       setGameState(state);
     };
 
@@ -136,8 +145,18 @@ export function useGameSync(
 
     // Handle controller updates
     const onControllerUpdate = (data: { type: 'joined' | 'left'; controller: Controller }) => {
+      console.log(`[GameSync] Controller update: ${data.type}`, {
+        controllerId: data.controller.id,
+        username: data.controller.username,
+        hasEmail: !!data.controller.email
+      });
       if (data.type === 'joined') {
-        updateController(data.controller);
+        // Ensure email field exists (defensive programming)
+        const controller = {
+          ...data.controller,
+          email: data.controller.email || '' // Default to empty string if missing
+        };
+        updateController(controller);
       } else {
         removeController(data.controller.id);
       }

@@ -1215,6 +1215,7 @@ export class GameRoom {
    */
   resetForNextGame(): void {
     const roomId = this.gameState.roomId;
+    const controllers = this.gameState.controllers; // Preserve active controllers
     const newEpoch = this.gameState.gameEpoch + 1; // Increment epoch to invalidate old deltas
 
     Logger.info('Resetting for next game (preserving queue)', { roomId, newEpoch });
@@ -1226,21 +1227,21 @@ export class GameRoom {
     this.previousWeatherCells = [];
     this.gameEndData = null;
 
-    // Clear active player tracking (they'll rejoin queue via client)
+    // Clear active player tracking (controllers remain connected)
     this.activePlayerIds.clear();
 
     // Reset counters
     this.aircraftCounter = 0;
     this.lastSpawnTime = 0;
 
-    // Reinitialize game state with NO controllers (queue is preserved)
+    // Reinitialize game state (controllers and queue are preserved)
     this.gameState = {
       roomId,
       createdAt: Date.now(),
       gameEpoch: newEpoch,
       aircraft: {},
       airspace: this.gameState.airspace, // Preserve airspace definition
-      controllers: {}, // Clear all controllers
+      controllers, // Preserve active controllers
       score: 0,
       successfulLandings: 0,
       nearMisses: 0,
