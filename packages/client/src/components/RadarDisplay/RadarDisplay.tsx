@@ -306,7 +306,7 @@ export function RadarDisplay({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [canvasSize, zoom, panX, panY]); // Restart when canvas size or transform changes
+  }, [canvasSize, zoom, panX, panY, aircraft.length]); // Restart when canvas size, transform, or aircraft count changes
 
   // Handle click (for mouse/desktop)
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
