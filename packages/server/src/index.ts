@@ -41,9 +41,26 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "wss:", "ws:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // Required for Vite HMR in dev
+      connectSrc: [
+        "'self'",
+        "wss:",
+        "ws:",
+        "https://www.google-analytics.com",
+        "https://analytics.google.com",
+        "https://www.googletagmanager.com"
+      ],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'", // Required for Vite HMR in dev
+        "https://www.googletagmanager.com"
+      ],
       styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https://www.google-analytics.com",
+        "https://www.googletagmanager.com"
+      ],
     },
   },
   crossOriginEmbedderPolicy: false, // Required for Socket.IO
