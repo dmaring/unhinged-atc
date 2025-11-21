@@ -14,6 +14,55 @@ apt-get install -y unattended-upgrades git curl
 echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades
 echo 'APT::Periodic::Unattended-Upgrade "1";' >> /etc/apt/apt.conf.d/20auto-upgrades
 
+# Install Google Cloud Ops Agent for log forwarding to Cloud Logging
+echo "Installing Google Cloud Ops Agent..."
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+bash add-google-cloud-ops-agent-repo.sh --also-install
+rm add-google-cloud-ops-agent-repo.sh
+
+# Configure Ops Agent to collect unhinged-atc logs
+# NOTE: We'll restart the agent after the service is created
+echo "Configuring Ops Agent..."
+cat > /etc/google-cloud-ops-agent/config.yaml <<'OPSCONFIG'
+logging:
+  receivers:
+    # Collect logs from systemd journal (includes unhinged-atc service)
+    syslog:
+      type: files
+      include_paths:
+        - /var/log/syslog
+
+  processors:
+    # Parse JSON logs from the application
+    parse_json:
+      type: parse_json
+      field: message
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S"
+
+  service:
+    pipelines:
+      # Pipeline for all system logs including unhinged-atc
+      default_pipeline:
+        receivers:
+          - syslog
+        processors:
+          - parse_json
+
+metrics:
+  receivers:
+    # Collect host metrics
+    hostmetrics:
+      type: hostmetrics
+      collection_interval: 60s
+
+  service:
+    pipelines:
+      default_pipeline:
+        receivers:
+          - hostmetrics
+OPSCONFIG
+
 # Install Node.js 20.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
@@ -132,6 +181,11 @@ sleep 15
 if curl -f http://localhost:3000/health > /dev/null 2>&1; then
     echo "✓ Unhinged ATC server is running successfully!"
     systemctl status unhinged-atc.service --no-pager
+
+    # Now that the service exists and is running, restart Ops Agent to start collecting logs
+    echo "Starting Ops Agent to forward logs to Cloud Logging..."
+    systemctl restart google-cloud-ops-agent
+    echo "✓ Ops Agent configured and running"
 else
     echo "✗ Health check failed. Checking logs..."
     journalctl -u unhinged-atc.service -n 50 --no-pager

@@ -1,0 +1,65 @@
+# Google Cloud Ops Agent Configuration
+# This configuration collects logs from the unhinged-atc systemd service
+# and forwards them to Cloud Logging with proper JSON parsing
+
+logging:
+  receivers:
+    # Collect logs from the unhinged-atc systemd service
+    unhinged_atc_logs:
+      type: systemd
+      systemd_filter: _SYSTEMD_UNIT=unhinged-atc.service
+
+    # Collect syslog for system-level events
+    syslog:
+      type: files
+      include_paths:
+        - /var/log/syslog
+        - /var/log/messages
+
+  processors:
+    # Parse JSON logs from the application
+    parse_json:
+      type: parse_json
+      time_key: timestamp
+      time_format: "%Y-%m-%dT%H:%M:%S.%LZ"
+
+    # Move fields for better structure in Cloud Logging
+    move_severity:
+      type: modify_fields
+      fields:
+        severity:
+          move_from: jsonPayload.logType
+          map_values:
+            player_event: INFO
+            game_event: INFO
+            server_info: INFO
+            server_error: ERROR
+            security_event: WARNING
+
+  service:
+    pipelines:
+      # Pipeline for unhinged-atc application logs
+      unhinged_atc:
+        receivers:
+          - unhinged_atc_logs
+        processors:
+          - parse_json
+          - move_severity
+
+      # Pipeline for system logs
+      default_pipeline:
+        receivers:
+          - syslog
+
+metrics:
+  receivers:
+    # Collect host metrics
+    hostmetrics:
+      type: hostmetrics
+      collection_interval: 60s
+
+  service:
+    pipelines:
+      default_pipeline:
+        receivers:
+          - hostmetrics

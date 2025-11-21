@@ -168,6 +168,54 @@ gcloud compute instance-templates create atc-template-v2 \
 - `VITE_WS_URL=wss://yourdomain.com`
 - `VITE_API_URL=https://yourdomain.com`
 
+### Cloud Logging & Monitoring
+
+**Viewing Logs in Cloud Logging**:
+
+The application automatically forwards logs to Cloud Logging via the Ops Agent. All logs are structured as JSON with the following types:
+
+```bash
+# View all player events (joins, disconnects)
+gcloud logging read 'jsonPayload.logType="player_event"' --limit 50 --format json
+
+# View specific player's activity
+gcloud logging read 'jsonPayload.username="USERNAME"' --limit 50 --format json
+
+# View errors only
+gcloud logging read 'jsonPayload.logType="server_error"' --limit 50 --format json
+
+# View security events (rate limiting, profanity filtering)
+gcloud logging read 'jsonPayload.logType="security_event"' --limit 50 --format json
+
+# View game events (crashes, landings)
+gcloud logging read 'jsonPayload.logType="game_event"' --limit 50 --format json
+
+# View logs from the last 24 hours
+gcloud logging read 'jsonPayload.logType=~".*"' --freshness=24h --format json
+```
+
+**Log Types**:
+- `player_event`: User connections, disconnections, queue events
+- `game_event`: Crashes, landings, game state changes
+- `server_info`: General server information and state changes
+- `server_error`: Application errors and exceptions
+- `security_event`: Security-related events (rate limiting, profanity detection)
+
+**Ops Agent Configuration**:
+
+The Ops Agent is automatically installed and configured by the startup script. It:
+- Collects logs from the `unhinged-atc.service` systemd unit
+- Parses JSON-formatted logs
+- Forwards to Cloud Logging with proper timestamps
+- Collects host metrics (CPU, memory, disk, network)
+
+Configuration file: `/etc/google-cloud-ops-agent/config.yaml`
+
+To restart the Ops Agent after configuration changes:
+```bash
+sudo systemctl restart google-cloud-ops-agent
+```
+
 ### Troubleshooting Deployment
 
 **Instance fails to start**:
@@ -175,9 +223,12 @@ gcloud compute instance-templates create atc-template-v2 \
 # Check serial console logs
 gcloud compute instances get-serial-port-output INSTANCE_NAME --zone=us-central1-a
 
-# Check systemd service logs
+# Check systemd service logs via SSH
 gcloud compute ssh INSTANCE_NAME --zone=us-central1-a
 sudo journalctl -u unhinged-atc.service -f
+
+# Or view in Cloud Logging
+gcloud logging read 'resource.labels.instance_id="INSTANCE_NAME"' --limit 50
 ```
 
 **Module resolution errors**:
@@ -192,6 +243,19 @@ sudo journalctl -u unhinged-atc.service -f
 - Check DNS A record points to load balancer IP
 - Wait 5-15 minutes for DNS propagation
 - Test: `dig yourdomain.com`
+
+**Ops Agent not forwarding logs**:
+```bash
+# Check Ops Agent status
+gcloud compute ssh INSTANCE_NAME --zone=us-central1-a
+sudo systemctl status google-cloud-ops-agent
+
+# View Ops Agent logs
+sudo journalctl -u google-cloud-ops-agent -f
+
+# Verify configuration
+sudo cat /etc/google-cloud-ops-agent/config.yaml
+```
 
 ### Architecture Overview
 
