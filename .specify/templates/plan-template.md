@@ -31,7 +31,24 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+**I. Player Experience First**
+- [ ] Feature enhances fun/chaos or directly supports gameplay
+- [ ] Feedback is immediate (visual, audio, notifications)
+- [ ] Does NOT degrade existing player experience
+
+**II. Simplicity & Maintainability**
+- [ ] No premature abstractions (Rule of Three applies)
+- [ ] New dependencies justified (if any)
+- [ ] Code readable without extensive documentation
+
+**III. Test Coverage**
+- [ ] Test plan identified for new game logic
+- [ ] Critical paths (collision, scoring, physics) have test coverage
+
+**IV. Real-time Reliability**
+- [ ] No blocking operations in game tick path
+- [ ] Graceful degradation on network failures
+- [ ] Performance target: <16ms tick, <100ms WebSocket RTT
 
 ## Project Structure
 
