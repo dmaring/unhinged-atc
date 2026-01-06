@@ -6,6 +6,7 @@ interface GameStore {
   gameState: GameState | null;
   selectedAircraftId: string | null;
   queueInfo: { count: number; position: number | null } | null;
+  actionIndicators: { id: string; aircraftId: string; type: string; message: string; timestamp: number }[];
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -14,6 +15,8 @@ interface GameStore {
   removeAircraft: (id: string) => void;
   setSelectedAircraft: (id: string | null) => void;
   addEvent: (event: GameEvent) => void;
+  addActionIndicator: (indicator: { id: string; aircraftId: string; type: string; message: string; timestamp: number }) => void;
+  removeActionIndicator: (id: string) => void;
   updateController: (controller: Controller) => void;
   removeController: (id: string) => void;
   updateTimeScale: (timeScale: number) => void;
@@ -27,6 +30,7 @@ const initialState = {
   gameState: null,
   selectedAircraftId: null,
   queueInfo: null,
+  actionIndicators: [],
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -115,6 +119,18 @@ export const useGameStore = create<GameStore>((set) => ({
         },
       };
     }),
+
+  addActionIndicator: (indicator) =>
+    set((store) => ({
+      ...store,
+      actionIndicators: [...(store.actionIndicators || []), indicator],
+    })),
+
+  removeActionIndicator: (id) =>
+    set((store) => ({
+      ...store,
+      actionIndicators: (store.actionIndicators || []).filter((i: any) => i.id !== id),
+    })),
 
   updateController: (controller) =>
     set((store) => {

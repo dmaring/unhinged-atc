@@ -10,9 +10,10 @@ interface ControlPanelProps {
   allAircraft?: Aircraft[];
   onCommand: (aircraftId: string, commandType: string, params: any) => void;
   onAircraftSelect?: (id: string) => void;
+  readOnly?: boolean;
 }
 
-export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, onAircraftSelect }: ControlPanelProps) {
+export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, onAircraftSelect, readOnly = false }: ControlPanelProps) {
   const [heading, setHeading] = useState('');
   const [altitude, setAltitude] = useState('');
   const [speed, setSpeed] = useState('');
@@ -154,6 +155,7 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
             <div className={styles.aircraftInfo}>
               <div className={styles.callsign}>{selectedAircraft.callsign}</div>
               <div className={styles.type}>{selectedAircraft.type}</div>
+              {readOnly && <div style={{ color: '#FF0000', fontWeight: 'bold', marginLeft: '10px' }}>LOCKED</div>}
             </div>
 
             <div className={styles.dataLine}>
@@ -173,10 +175,10 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
           <div className={styles.section}>
             <div className={styles.sectionTitle}>QUICK COMMANDS</div>
             <div className={styles.buttonGrid}>
-              <button onClick={handleTurnLeft}>⬅ LEFT 10°</button>
-              <button onClick={handleTurnRight}>⮕ RIGHT 10°</button>
-              <button onClick={handleClimb}>⬆ CLIMB 1000ft</button>
-              <button onClick={handleDescend}>⬇ DESCEND 1000ft</button>
+              <button onClick={handleTurnLeft} disabled={readOnly}>⬅ LEFT 10°</button>
+              <button onClick={handleTurnRight} disabled={readOnly}>⮕ RIGHT 10°</button>
+              <button onClick={handleClimb} disabled={readOnly}>⬆ CLIMB 1000ft</button>
+              <button onClick={handleDescend} disabled={readOnly}>⬇ DESCEND 1000ft</button>
             </div>
           </div>
 
@@ -240,8 +242,9 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
                       placeholder="270"
                       min="0"
                       max="360"
+                      disabled={readOnly}
                     />
-                    <button onClick={handleSetHeading}>SET</button>
+                    <button onClick={handleSetHeading} disabled={readOnly}>SET</button>
                   </div>
                 </div>
 
@@ -255,8 +258,9 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
                       placeholder="25000"
                       min="0"
                       max="45000"
+                      disabled={readOnly}
                     />
-                    <button onClick={handleSetAltitude}>SET</button>
+                    <button onClick={handleSetAltitude} disabled={readOnly}>SET</button>
                   </div>
                 </div>
 
@@ -268,8 +272,9 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
                       value={speed}
                       onChange={(e) => setSpeed(e.target.value)}
                       placeholder="350"
+                      disabled={readOnly}
                     />
-                    <button onClick={handleSetSpeed}>SET</button>
+                    <button onClick={handleSetSpeed} disabled={readOnly}>SET</button>
                   </div>
                 </div>
               </>

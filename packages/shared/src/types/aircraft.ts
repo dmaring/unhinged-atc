@@ -55,6 +55,8 @@ export interface Aircraft {
   crashPosition?: Position; // Where the crash happened
 
   // Control tracking
+  ownerId?: string; // ID of the controller who "owns" (has selected) this aircraft
+  ownerColor?: string; // Color of the controller
   lastCommandBy?: string; // Controller ID who last commanded
   lastCommandTime?: number; // Timestamp
 

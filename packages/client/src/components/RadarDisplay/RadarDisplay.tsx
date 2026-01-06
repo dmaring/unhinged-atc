@@ -19,6 +19,8 @@ interface RadarDisplayProps {
   crashCount?: number;
   gameTime?: number;
   nextBonusAt?: number;
+  // Action indicators
+  actionIndicators?: { id: string; aircraftId: string; type: string; message: string; timestamp: number }[];
 }
 
 export function RadarDisplay({
@@ -34,6 +36,7 @@ export function RadarDisplay({
   crashCount = 0,
   gameTime = 0,
   nextBonusAt = 0,
+  actionIndicators = [],
 }: RadarDisplayProps) {
   const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -267,10 +270,9 @@ export function RadarDisplay({
 
       // Draw aircraft using refs (so we always get the latest data)
       const currentAircraft = aircraftRef.current;
+
       if (currentAircraft.length > 0) {
-        console.log('[Render] Drawing', currentAircraft.length, 'aircraft');
         currentAircraft.forEach((ac, idx) => {
-          console.log(`[Render] Aircraft ${idx}:`, ac.callsign, 'at', ac.position);
           const isInConflict = conflictAircraftIds.has(ac.id);
           drawAircraft(
             ctx,
@@ -283,6 +285,17 @@ export function RadarDisplay({
             panX,
             panY
           );
+        });
+      }
+
+      // Draw action indicators
+      if (actionIndicators && actionIndicators.length > 0) {
+        actionIndicators.forEach(indicator => {
+          // Only draw if related to an aircraft
+          const aircraft = aircraftRef.current.find(a => a.id === indicator.aircraftId);
+          if (aircraft) {
+            drawActionIndicator(ctx, indicator, aircraft, width, height, zoom, panX, panY);
+          }
         });
       }
 
@@ -329,7 +342,6 @@ export function RadarDisplay({
         return;
       }
     }
-
     // Click on empty space deselects
     onAircraftSelect('');
   };
@@ -616,14 +628,22 @@ function drawAircraft(
 
   // Determine color based on state
   let aircraftColor: string = RADAR_CONFIG.PRIMARY_COLOR;
+
+  // Use owner color if available
+  if (aircraft.ownerColor) {
+    aircraftColor = aircraft.ownerColor;
+  }
+
   if (aircraft.hasCollided) {
     aircraftColor = '#FF0000';
   } else if (isSelected) {
-    aircraftColor = '#00FFFF';
+    // If selected, maybe brighten it or keep owner color?
+    // Let's keep owner color but add a highlight ring
   } else if (isInConflict) {
     aircraftColor = '#FFAA00'; // Orange for conflicts
   } else if (aircraft.flightPhase === 'approach' || aircraft.flightPhase === 'landing') {
-    aircraftColor = '#FFD700'; // Gold for approaching aircraft
+    // Keep owner color if set, otherwise gold
+    if (!aircraft.ownerColor) aircraftColor = '#FFD700';
   } else if (aircraft.fuel < 30) {
     aircraftColor = '#FF6600'; // Orange-red for low fuel
   }
@@ -631,6 +651,12 @@ function drawAircraft(
   // Draw trail
   if (aircraft.trailHistory.length > 1) {
     ctx.strokeStyle = `rgba(0, 255, 0, ${RADAR_CONFIG.TRAIL_OPACITY})`;
+    // If owned, use owner color for trail too? Maybe faint version.
+    if (aircraft.ownerColor) {
+      // Convert hex to rgba? For now just keep green trail or use simple opacity
+      // Let's stick to green trail for radar consistency, or maybe owner color
+    }
+
     ctx.lineWidth = 1;
     ctx.beginPath();
 
@@ -719,6 +745,18 @@ function drawAircraft(
     ctx.stroke();
   }
 
+  // Draw Lock Icon if owned by someone else (and not selected by me, which is implied by isSelected logic usually)
+  // Actually, if I select it, I become owner.
+  // If someone else owns it, I shouldn't be able to select it (enforced by server, but UI should show it).
+  if (aircraft.ownerId && !isSelected) {
+    // Draw small lock or just the color indicates it.
+    // Let's draw a small dot or circle in the center
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 
   // Draw callsign and data tag
@@ -762,4 +800,42 @@ function drawAircraft(
   }
 
   ctx.restore(); // Restore opacity after data tag
+}
+
+function drawActionIndicator(
+  ctx: CanvasRenderingContext2D,
+  indicator: { type: string; message: string; timestamp: number },
+  aircraft: Aircraft,
+  width: number,
+  height: number,
+  zoomLevel: number,
+  panOffsetX: number,
+  panOffsetY: number
+) {
+  const screenPos = worldToScreen(aircraft.position, width, height, zoomLevel, panOffsetX, panOffsetY);
+  const fontScale = getFontScale();
+
+  // Fade out based on age (0 to 2000ms)
+  const age = Date.now() - indicator.timestamp;
+  const opacity = Math.max(0, 1 - age / 2000);
+
+  // Move up over time
+  const yOffset = -20 - (age / 50);
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `bold ${Math.floor(12 * fontScale)}px "Share Tech Mono", monospace`;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 4;
+
+  // Color based on type
+  if (indicator.type === 'error' || indicator.type === 'locked') {
+    ctx.fillStyle = '#FF0000';
+  } else {
+    ctx.fillStyle = '#00FF00';
+  }
+
+  ctx.fillText(indicator.message, screenPos.x + 15, screenPos.y + yOffset);
+  ctx.restore();
 }

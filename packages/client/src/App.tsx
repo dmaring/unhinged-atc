@@ -183,7 +183,7 @@ function GameContent() {
     },
   }), [addEvent])
 
-  const { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame } = useGameSync(
+  const { sendCommand, selectAircraft, setTimeScale, sendChaosCommand, spawnAircraft, resetGame } = useGameSync(
     socket,
     isConnected,
     username,
@@ -195,6 +195,7 @@ function GameContent() {
   const gameState = useGameStore((state) => state.gameState)
   const selectedAircraftId = useGameStore((state) => state.selectedAircraftId)
   const setSelectedAircraft = useGameStore((state) => state.setSelectedAircraft)
+  const actionIndicators = useGameStore((state) => state.actionIndicators)
 
   // Track crash events when they occur
   useEffect(() => {
@@ -370,6 +371,9 @@ function GameContent() {
     chaosAlertDescription={chaosAlertDescription}
     isConnected={isConnected}
     connectionError={connectionError}
+    actionIndicators={actionIndicators}
+    selectAircraft={selectAircraft}
+    playerId={socket?.id}
   />;
 }
 
@@ -399,6 +403,9 @@ function GameUI({
   chaosAlertDescription,
   isConnected,
   connectionError,
+  actionIndicators,
+  selectAircraft,
+  playerId,
 }: any) {
   const { orientation, isMobileLayout } = useOrientation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -476,6 +483,7 @@ function GameUI({
         allAircraft={aircraftArray}
         onCommand={sendCommand}
         onAircraftSelect={setSelectedAircraft}
+        readOnly={selectedAircraft?.ownerId && selectedAircraft.ownerId !== playerId}
       />
       <NotificationPanel />
     </>
@@ -504,12 +512,16 @@ function GameUI({
             weather={weather}
             events={events}
             selectedAircraftId={selectedAircraftId}
-            onAircraftSelect={(id) => setSelectedAircraft(id || null)}
+            onAircraftSelect={(id) => {
+              setSelectedAircraft(id || null);
+              if (id) selectAircraft(id);
+            }}
             score={gameState?.score}
             planesCleared={gameState?.planesCleared}
             crashCount={gameState?.crashCount}
             gameTime={gameState?.gameTime}
             nextBonusAt={gameState?.nextBonusAt}
+            actionIndicators={actionIndicators}
           />
         </div>
 

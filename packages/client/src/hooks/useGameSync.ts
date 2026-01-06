@@ -35,6 +35,8 @@ export function useGameSync(
   const updateChaosAbilities = useGameStore((state) => state.updateChaosAbilities);
   const updateScoreMetrics = useGameStore((state) => state.updateScoreMetrics);
   const setQueueInfo = useGameStore((state) => state.setQueueInfo);
+  const addActionIndicator = useGameStore((state) => state.addActionIndicator);
+  const removeActionIndicator = useGameStore((state) => state.removeActionIndicator);
   const resetStore = useGameStore((state) => state.reset);
 
   // Watchdog: Track last state update time to detect stale connections
@@ -79,16 +81,18 @@ export function useGameSync(
         }
       }
 
+      // Add new aircraft first
+      if (delta.newAircraft && delta.newAircraft.length > 0) {
+        delta.newAircraft.forEach((aircraft) => {
+          addAircraft(aircraft);
+        });
+      }
+
       // Update aircraft
       delta.aircraftUpdates?.forEach((update) => {
         if (update.id) {
           updateAircraft(update.id, update);
         }
-      });
-
-      // Add new aircraft
-      delta.newAircraft?.forEach((aircraft) => {
-        addAircraft(aircraft);
       });
 
       // Remove aircraft
@@ -140,6 +144,17 @@ export function useGameSync(
         gameTime: delta.gameTime,
         nextBonusAt: delta.nextBonusAt,
       });
+
+      // Handle action indicators
+      if (delta.actionIndicators) {
+        delta.actionIndicators.forEach(indicator => {
+          addActionIndicator(indicator);
+          // Auto-remove after 2 seconds
+          setTimeout(() => {
+            removeActionIndicator(indicator.id);
+          }, 2000);
+        });
+      }
     };
 
     // Handle game events - REMOVED: events now only come via delta.newEvents
@@ -335,7 +350,7 @@ export function useGameSync(
       socket.off('game_restarting', onGameRestarting);
       socket.off('return_to_login', onReturnToLogin);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, username, email, onJoinError]);
   // Note: Zustand store selectors are intentionally excluded from dependencies
   // They are stable references and including them causes infinite re-renders
@@ -353,6 +368,23 @@ export function useGameSync(
       aircraftId,
       type: commandType,
       params,
+    });
+  };
+
+  /**
+   * Select an aircraft (request ownership)
+   */
+  const selectAircraft = (aircraftId: string) => {
+    if (!socket || !isConnected) return;
+
+    // Optimistically update selection locally? No, wait for server confirmation via ownership change?
+    // Actually, for selection UI we update locally immediately, but for ownership we send command.
+    // The server will respond with ownership update.
+
+    socket.emit('aircraft_command', {
+      aircraftId,
+      type: 'select_aircraft',
+      params: {},
     });
   };
 
@@ -405,5 +437,5 @@ export function useGameSync(
     socket.emit('reset_game');
   };
 
-  return { sendCommand, setTimeScale, sendChaosCommand, spawnAircraft, resetGame };
+  return { sendCommand, selectAircraft, setTimeScale, sendChaosCommand, spawnAircraft, resetGame };
 }

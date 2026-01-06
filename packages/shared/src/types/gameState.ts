@@ -46,6 +46,7 @@ export interface Controller {
   joinedAt: number;
   commandsIssued: number;
   score: number;
+  color: string; // Assigned color for UI identification
 }
 
 export interface QueuedPlayer {
@@ -114,4 +115,11 @@ export interface StateDelta {
     type: "joined" | "left";
     controller: Controller;
   };
+  actionIndicators?: {
+    id: string;
+    aircraftId: string;
+    type: "turn" | "climb" | "descend" | "speed" | "locked" | "error";
+    message: string;
+    timestamp: number;
+  }[];
 }

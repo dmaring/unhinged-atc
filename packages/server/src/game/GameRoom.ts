@@ -41,6 +41,17 @@ import {
 } from './MessageTemplates.js';
 import { Logger } from '../utils/logger.js';
 
+const CONTROLLER_COLORS = [
+  '#FF5733', // Red-Orange
+  '#33FF57', // Green
+  '#3357FF', // Blue
+  '#FF33F5', // Pink
+  '#33FFF5', // Cyan
+  '#F5FF33', // Yellow
+  '#FF8C33', // Orange
+  '#8C33FF', // Purple
+];
+
 export class GameRoom {
   private gameState: GameState;
   private physics: AircraftPhysics;
@@ -291,6 +302,8 @@ export class GameRoom {
         isCrashing: aircraft.isCrashing,
         crashTime: aircraft.crashTime,
         crashPosition: aircraft.crashPosition,
+        ownerId: aircraft.ownerId,
+        ownerColor: aircraft.ownerColor,
       });
     });
 
@@ -441,6 +454,12 @@ export class GameRoom {
       }
     }
 
+    // Add action indicators to delta
+    if (this.actionIndicators.length > 0) {
+      delta.actionIndicators = [...this.actionIndicators];
+      this.actionIndicators = []; // Clear after sending
+    }
+
     return delta;
   }
 
@@ -503,6 +522,7 @@ export class GameRoom {
       joinedAt: Date.now(),
       commandsIssued: 0,
       score: 0,
+      color: CONTROLLER_COLORS[this.activePlayerIds.size % CONTROLLER_COLORS.length],
     };
 
     this.gameState.controllers[socketId] = controller;
@@ -696,16 +716,103 @@ export class GameRoom {
       return false;
     }
 
+    const controller = this.gameState.controllers[command.controllerId];
+    if (!controller) {
+      console.warn(`Controller ${command.controllerId} not found`);
+      return false;
+    }
+
+    // Handle Aircraft Selection / Locking
+    if (command.type === 'select_aircraft') {
+      // If already owned by someone else, reject
+      if (aircraft.ownerId && aircraft.ownerId !== controller.id) {
+        return false;
+      }
+
+      // If already owned by this controller, do nothing (or toggle? No, explicit deselect needed usually, but for now just confirm)
+      if (aircraft.ownerId === controller.id) {
+        return true;
+      }
+
+      // Release any other aircraft owned by this controller
+      Object.values(this.gameState.aircraft).forEach(a => {
+        if (a.ownerId === controller.id) {
+          a.ownerId = undefined;
+          a.ownerColor = undefined;
+        }
+      });
+
+      // Lock this aircraft
+      aircraft.ownerId = controller.id;
+      aircraft.ownerColor = controller.color;
+
+      // Add action indicator for locking
+      this.addActionIndicator(aircraft.id, 'locked', 'LOCKED', controller.id);
+
+      return true;
+    }
+
+    // Verify ownership for all other commands
+    if (aircraft.ownerId && aircraft.ownerId !== controller.id) {
+      console.warn(`Controller ${controller.username} tried to command aircraft owned by ${aircraft.ownerId}`);
+      this.addActionIndicator(aircraft.id, 'error', 'LOCKED!', controller.id);
+      return false;
+    }
+
+    // If unowned, auto-assign ownership (optional, but good for UX)
+    if (!aircraft.ownerId) {
+      // Release any other aircraft owned by this controller
+      Object.values(this.gameState.aircraft).forEach(a => {
+        if (a.ownerId === controller.id) {
+          a.ownerId = undefined;
+          a.ownerColor = undefined;
+        }
+      });
+      aircraft.ownerId = controller.id;
+      aircraft.ownerColor = controller.color;
+    }
+
     const success = this.commandProcessor.processCommand(aircraft, command);
 
     if (success) {
-      const controller = this.gameState.controllers[command.controllerId];
-      if (controller) {
-        controller.commandsIssued++;
+      controller.commandsIssued++;
+
+      // Add action indicator
+      let type: "turn" | "climb" | "descend" | "speed" | "locked" | "error" = "turn";
+      let message = "";
+
+      switch (command.type) {
+        case 'turn': type = 'turn'; message = `${command.params.heading}°`; break;
+        case 'climb': type = 'climb'; message = `FL${Math.round((command.params.altitude || 0) / 100)}`; break;
+        case 'descend': type = 'descend'; message = `FL${Math.round((command.params.altitude || 0) / 100)}`; break;
+        case 'speed': type = 'speed'; message = `${command.params.speed}kts`; break;
+        case 'land': type = 'descend'; message = 'LANDING'; break;
+        case 'hold': type = 'turn'; message = 'HOLD'; break;
+        case 'direct': type = 'turn'; message = 'DIRECT'; break;
       }
+
+      this.addActionIndicator(aircraft.id, type, message, controller.id);
     }
 
     return success;
+  }
+
+  private actionIndicators: {
+    id: string;
+    aircraftId: string;
+    type: "turn" | "climb" | "descend" | "speed" | "locked" | "error";
+    message: string;
+    timestamp: number;
+  }[] = [];
+
+  private addActionIndicator(aircraftId: string, type: "turn" | "climb" | "descend" | "speed" | "locked" | "error", message: string, controllerId: string) {
+    this.actionIndicators.push({
+      id: randomBytes(4).toString('hex'),
+      aircraftId,
+      type,
+      message,
+      timestamp: Date.now()
+    });
   }
 
   /**
@@ -808,28 +915,28 @@ export class GameRoom {
       altitude: number;
       heading: number;
     }> = [
-      {
-        callsign: 'UAL123',
-        type: 'B738',
-        position: { x: -12, y: 8 },
-        altitude: 15000,
-        heading: 90,
-      },
-      {
-        callsign: 'DAL456',
-        type: 'A320',
-        position: { x: 8, y: -6 },
-        altitude: 25000,
-        heading: 270,
-      },
-      {
-        callsign: 'AAL789',
-        type: 'B77W',
-        position: { x: -3, y: 10 },
-        altitude: 35000,
-        heading: 180,
-      },
-    ];
+        {
+          callsign: 'UAL123',
+          type: 'B738',
+          position: { x: -12, y: 8 },
+          altitude: 15000,
+          heading: 90,
+        },
+        {
+          callsign: 'DAL456',
+          type: 'A320',
+          position: { x: 8, y: -6 },
+          altitude: 25000,
+          heading: 270,
+        },
+        {
+          callsign: 'AAL789',
+          type: 'B77W',
+          position: { x: -3, y: 10 },
+          altitude: 35000,
+          heading: 180,
+        },
+      ];
 
     aircraftConfigs.forEach((config) => {
       this.spawnAircraft(config);

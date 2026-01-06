@@ -14,6 +14,8 @@
     "build:client": "pnpm --filter client build",
     "build:server": "pnpm --filter server build",
     "test": "pnpm --filter './packages/*' test",
+    "test:run": "pnpm --filter './packages/*' test:run",
+    "test:coverage": "pnpm --filter './packages/*' test:coverage",
     "lint": "pnpm --filter './packages/*' lint",
     "clean": "pnpm --filter './packages/*' clean && rm -rf node_modules"
   },
@@ -24,7 +26,9 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/node": "^20.10.0",
-    "typescript": "^5.3.3"
+    "@vitest/ui": "^4.0.16",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "react-ga4": "^2.1.0"

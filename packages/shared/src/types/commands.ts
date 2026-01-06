@@ -8,7 +8,8 @@ export type CommandType =
   | "direct" // Direct to waypoint
   | "land" // Landing clearance
   | "hold" // Hold pattern
-  | "squawk"; // Transponder code
+  | "squawk" // Transponder code
+  | "select_aircraft"; // Select/Lock aircraft
 
 export interface CommandParams {
   heading?: number;

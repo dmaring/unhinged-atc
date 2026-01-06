@@ -23,6 +23,8 @@ export class CommandProcessor {
         return this.processDirectCommand(aircraft, command);
       case 'land':
         return this.processLandCommand(aircraft, command);
+      case 'select_aircraft':
+        return true; // Handled in GameRoom, but valid command
       default:
         console.warn(`Unknown command type: ${command.type}`);
         return false;
