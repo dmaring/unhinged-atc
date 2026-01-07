@@ -6,7 +6,7 @@ A real-time multiplayer web application where multiple users simultaneously cont
 
 ## 🎮 Try It Live (If You Dare)
 
-**[www.openatc.app](https://www.openatc.app)** - Where internet strangers collectively manage an airspace. What could possibly go wrong?
+**[openatc.app](https://openatc.app)** - Where internet strangers collectively manage an airspace. What could possibly go wrong?
 
 Join the chaos right now - no installation, no training, no adult supervision required. Just you, some aircraft, and whoever else decided this was a good idea today.
 
