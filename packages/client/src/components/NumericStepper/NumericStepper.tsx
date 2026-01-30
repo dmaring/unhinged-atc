@@ -47,7 +47,7 @@ export function NumericStepper({
       return;
     }
 
-    const numValue = parseInt(inputValue);
+    const numValue = parseInt(inputValue, 10);
     if (!isNaN(numValue)) {
       const clampedValue = Math.max(min, Math.min(max, numValue));
       setLocalValue(clampedValue);

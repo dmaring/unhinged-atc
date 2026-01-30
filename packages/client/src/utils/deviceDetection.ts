@@ -97,9 +97,9 @@ export function getSafeAreaInsets(): {
   const style = getComputedStyle(document.documentElement);
 
   return {
-    top: parseInt(style.getPropertyValue('--safe-area-inset-top') || '0') || 0,
-    right: parseInt(style.getPropertyValue('--safe-area-inset-right') || '0') || 0,
-    bottom: parseInt(style.getPropertyValue('--safe-area-inset-bottom') || '0') || 0,
-    left: parseInt(style.getPropertyValue('--safe-area-inset-left') || '0') || 0,
+    top: parseInt(style.getPropertyValue('--safe-area-inset-top') || '0', 10) || 0,
+    right: parseInt(style.getPropertyValue('--safe-area-inset-right') || '0', 10) || 0,
+    bottom: parseInt(style.getPropertyValue('--safe-area-inset-bottom') || '0', 10) || 0,
+    left: parseInt(style.getPropertyValue('--safe-area-inset-left') || '0', 10) || 0,
   };
 }

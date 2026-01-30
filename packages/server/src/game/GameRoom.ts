@@ -43,7 +43,7 @@ import { Logger } from '../utils/logger.js';
 
 const CONTROLLER_COLORS = [
   '#FF5733', // Red-Orange
-  '#33FF57', // Green
+  '#FFD700', // Gold
   '#3357FF', // Blue
   '#FF33F5', // Pink
   '#33FFF5', // Cyan
@@ -522,7 +522,7 @@ export class GameRoom {
       joinedAt: Date.now(),
       commandsIssued: 0,
       score: 0,
-      color: CONTROLLER_COLORS[this.activePlayerIds.size % CONTROLLER_COLORS.length],
+      color: this.getNextAvailableColor(),
     };
 
     this.gameState.controllers[socketId] = controller;
@@ -546,6 +546,18 @@ export class GameRoom {
     });
 
     return controller;
+  }
+
+  /**
+   * Get the first color from the palette not already used by an active controller.
+   * Falls back to cycling if all colors are taken.
+   */
+  private getNextAvailableColor(): string {
+    const usedColors = new Set(
+      Object.values(this.gameState.controllers).map(c => c.color)
+    );
+    const available = CONTROLLER_COLORS.find(c => !usedColors.has(c));
+    return available ?? CONTROLLER_COLORS[Object.keys(this.gameState.controllers).length % CONTROLLER_COLORS.length];
   }
 
   /**
@@ -737,8 +749,8 @@ export class GameRoom {
       // Release any other aircraft owned by this controller
       Object.values(this.gameState.aircraft).forEach(a => {
         if (a.ownerId === controller.id) {
-          a.ownerId = undefined;
-          a.ownerColor = undefined;
+          a.ownerId = null;
+          a.ownerColor = null;
         }
       });
 
@@ -764,8 +776,8 @@ export class GameRoom {
       // Release any other aircraft owned by this controller
       Object.values(this.gameState.aircraft).forEach(a => {
         if (a.ownerId === controller.id) {
-          a.ownerId = undefined;
-          a.ownerColor = undefined;
+          a.ownerId = null;
+          a.ownerColor = null;
         }
       });
       aircraft.ownerId = controller.id;
