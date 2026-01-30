@@ -39,8 +39,8 @@ export function PlayersPanel() {
               <div className={styles.playerList}>
                 {controllerList.map((controller) => (
                   <div key={controller.id} className={styles.playerRow}>
-                    <span className={styles.indicator}>●</span>
-                    <span className={styles.username}>{controller.username}</span>
+                    <span className={styles.indicator} style={{ color: controller.color }}>●</span>
+                    <span className={styles.username} style={{ color: controller.color }}>{controller.username}</span>
                   </div>
                 ))}
               </div>

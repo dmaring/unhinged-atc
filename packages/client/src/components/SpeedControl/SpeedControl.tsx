@@ -61,7 +61,7 @@ export function SpeedControl({ currentSpeed, onSpeedChange }: SpeedControlProps)
             max="30"
             step="1"
             value={speed}
-            onChange={(e) => handleSpeedChange(parseInt(e.target.value))}
+            onChange={(e) => handleSpeedChange(parseInt(e.target.value, 10))}
             className={styles.slider}
           />
           <button

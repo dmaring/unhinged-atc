@@ -61,7 +61,7 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
 
   const handleSetHeading = () => {
     if (!selectedAircraft || !heading) return;
-    const hdg = parseInt(heading);
+    const hdg = parseInt(heading, 10);
     if (isNaN(hdg) || hdg < 0 || hdg > 360) return;
     onCommand(selectedAircraft.id, 'turn', { heading: hdg });
     setHeading('');
@@ -69,7 +69,7 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
 
   const handleSetAltitude = () => {
     if (!selectedAircraft || !altitude) return;
-    const alt = parseInt(altitude);
+    const alt = parseInt(altitude, 10);
     if (isNaN(alt) || alt < 0 || alt > 45000) return;
 
     if (alt > selectedAircraft.altitude) {
@@ -82,7 +82,7 @@ export function ControlPanel({ selectedAircraft, allAircraft = [], onCommand, on
 
   const handleSetSpeed = () => {
     if (!selectedAircraft || !speed) return;
-    const spd = parseInt(speed);
+    const spd = parseInt(speed, 10);
     if (isNaN(spd)) return;
     onCommand(selectedAircraft.id, 'speed', { speed: spd });
     setSpeed('');
