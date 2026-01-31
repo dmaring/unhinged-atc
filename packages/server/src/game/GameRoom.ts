@@ -455,7 +455,10 @@ export class GameRoom {
           const excess = this.sentEventIds.size - 100;
           const iterator = this.sentEventIds.values();
           for (let i = 0; i < excess; i++) {
-            this.sentEventIds.delete(iterator.next().value);
+            const result = iterator.next();
+            if (!result.done && result.value !== undefined) {
+              this.sentEventIds.delete(result.value);
+            }
           }
         }
       }

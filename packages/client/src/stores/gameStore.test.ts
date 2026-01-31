@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGameStore } from './gameStore';
-import { GameState, Aircraft, Controller } from 'shared';
+import { GameState, Aircraft } from 'shared';
 
 describe('GameStore - Action Indicators', () => {
   beforeEach(() => {

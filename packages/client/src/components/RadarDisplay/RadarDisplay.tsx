@@ -272,7 +272,7 @@ export function RadarDisplay({
       const currentAircraft = aircraftRef.current;
 
       if (currentAircraft.length > 0) {
-        currentAircraft.forEach((ac, idx) => {
+        currentAircraft.forEach((ac) => {
           const isInConflict = conflictAircraftIds.has(ac.id);
           drawAircraft(
             ctx,
