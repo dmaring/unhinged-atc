@@ -135,8 +135,8 @@ describe('GameRoom - Aircraft Ownership System', () => {
       const aircraft1 = updatedState.aircraft[aircraft1Id];
       const aircraft2 = updatedState.aircraft[aircraft2Id];
 
-      expect(aircraft1.ownerId).toBeUndefined(); // Released
-      expect(aircraft1.ownerColor).toBeUndefined();
+      expect(aircraft1.ownerId).toBeNull(); // Released
+      expect(aircraft1.ownerColor).toBeNull();
       expect(aircraft2.ownerId).toBe(controller1Id); // Now owned
       expect(aircraft2.ownerColor).toBe(updatedState.controllers[controller1Id].color);
     });
@@ -258,7 +258,7 @@ describe('GameRoom - Aircraft Ownership System', () => {
       const aircraft1 = updatedState.aircraft[aircraft1Id];
       const aircraft2 = updatedState.aircraft[aircraft2Id];
 
-      expect(aircraft1.ownerId).toBeUndefined(); // Released
+      expect(aircraft1.ownerId).toBeNull(); // Released
       expect(aircraft2.ownerId).toBe(controller1Id); // Auto-assigned
     });
   });
@@ -384,7 +384,7 @@ describe('GameRoom - Aircraft Ownership System', () => {
       const aircraft1 = updatedState.aircraft[aircraftIds[0]];
       const aircraft2 = updatedState.aircraft[aircraftIds[1]];
 
-      expect(aircraft1.ownerId).toBeUndefined();
+      expect(aircraft1.ownerId).toBeNull();
       expect(aircraft2.ownerId).toBe(controller1Id);
     });
   });

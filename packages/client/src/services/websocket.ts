@@ -42,9 +42,30 @@ export class WebSocketService {
       this.reconnectAttempts++;
     });
 
+    // Handle max reconnection attempts reached
+    this.socket.io.on('reconnect_failed', () => {
+      console.error('[WebSocket] Max reconnection attempts reached');
+      // Emit custom event for UI to handle
+      if (this.socket) {
+        this.socket.emit('connection_failed', {
+          message: 'Unable to connect to server. Please check your connection and try again.',
+          attempts: this.reconnectAttempts,
+        });
+      }
+    });
+
     this.socket.on('welcome', (data) => {
       console.log('[WebSocket] Welcome message:', data);
     });
+  }
+
+  /**
+   * Manually retry connection after failure
+   */
+  retryConnection(): void {
+    this.reconnectAttempts = 0;
+    this.disconnect();
+    this.connect();
   }
 
   disconnect(): void {

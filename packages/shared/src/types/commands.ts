@@ -25,6 +25,7 @@ export interface AircraftCommand {
   aircraftId: string;
   controllerId: string;
   timestamp: number;
+  gameEpoch?: number; // Optional for backward compatibility, validates command freshness
   type: CommandType;
   params: CommandParams;
 }

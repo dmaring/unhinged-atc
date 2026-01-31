@@ -12,6 +12,7 @@ import {
   Conflict,
   POINTS,
   GAME_CONFIG,
+  CRASH_CONFIG,
   SPAWN_DIFFICULTY_TIERS,
   GAME_END_MESSAGES,
   ChaosCommand,
@@ -71,6 +72,9 @@ export class GameRoom {
   // Player queue management
   private queuedPlayers: Map<string, QueuedPlayer> = new Map(); // Map of socketId -> QueuedPlayer
   private activePlayerIds: Set<string> = new Set(); // Track which players are active (not queued)
+
+  // Color assignment pool (prevents race conditions)
+  private availableColors: string[] = [...CONTROLLER_COLORS];
 
   constructor(roomId: string) {
     this.physics = new AircraftPhysics();
@@ -276,10 +280,16 @@ export class GameRoom {
     Object.values(this.gameState.aircraft).forEach((aircraft) => {
       if (aircraft.isLanded || aircraft.hasCollided) return;
 
+      // Check if already out of bounds BEFORE physics update
+      if (!this.physics.isInBounds(aircraft, this.gameState.airspace.bounds)) {
+        outOfBoundsAircraftIds.push(aircraft.id);
+        return; // Skip physics and updates for already out-of-bounds aircraft
+      }
+
       // Update physics
       this.physics.update(aircraft, deltaTime);
 
-      // Check if out of bounds
+      // Check if out of bounds AFTER physics update
       if (!this.physics.isInBounds(aircraft, this.gameState.airspace.bounds)) {
         outOfBoundsAircraftIds.push(aircraft.id);
         return; // Skip sending update for aircraft that will be removed
@@ -362,7 +372,7 @@ export class GameRoom {
     Object.values(this.gameState.aircraft).forEach((aircraft) => {
       if (aircraft.isCrashing && aircraft.crashTime) {
         const elapsedTime = Date.now() - aircraft.crashTime;
-        if (elapsedTime >= 2000) { // CRASH_CONFIG.ANIMATION_DURATION
+        if (elapsedTime >= CRASH_CONFIG.ANIMATION_DURATION) {
           removedAircraftIds.push(aircraft.id);
           delete this.gameState.aircraft[aircraft.id];
         }
@@ -447,9 +457,16 @@ export class GameRoom {
         unsentEvents.forEach((e) => this.sentEventIds.add(e.id));
 
         // Limit sentEventIds size to prevent memory leak (keep last 100)
+        // Efficient approach: delete oldest entries in-place
         if (this.sentEventIds.size > 100) {
-          const idsArray = Array.from(this.sentEventIds);
-          this.sentEventIds = new Set(idsArray.slice(-100));
+          const excess = this.sentEventIds.size - 100;
+          const iterator = this.sentEventIds.values();
+          for (let i = 0; i < excess; i++) {
+            const result = iterator.next();
+            if (!result.done && result.value !== undefined) {
+              this.sentEventIds.delete(result.value);
+            }
+          }
         }
       }
     }
@@ -549,15 +566,16 @@ export class GameRoom {
   }
 
   /**
-   * Get the first color from the palette not already used by an active controller.
+   * Get the next available color from the pool (atomic operation prevents race conditions)
    * Falls back to cycling if all colors are taken.
    */
   private getNextAvailableColor(): string {
-    const usedColors = new Set(
-      Object.values(this.gameState.controllers).map(c => c.color)
-    );
-    const available = CONTROLLER_COLORS.find(c => !usedColors.has(c));
-    return available ?? CONTROLLER_COLORS[Object.keys(this.gameState.controllers).length % CONTROLLER_COLORS.length];
+    // Atomic: pop from available pool
+    const color = this.availableColors.shift();
+    if (color) return color;
+
+    // Fallback: cycle through colors if all taken
+    return CONTROLLER_COLORS[Object.keys(this.gameState.controllers).length % CONTROLLER_COLORS.length];
   }
 
   /**
@@ -566,6 +584,9 @@ export class GameRoom {
   removeController(socketId: string): void {
     const controller = this.gameState.controllers[socketId];
     if (!controller) return;
+
+    // Return color to available pool
+    this.availableColors.push(controller.color);
 
     delete this.gameState.controllers[socketId];
     this.activePlayerIds.delete(socketId); // Remove from active players
@@ -722,6 +743,12 @@ export class GameRoom {
    * Process an aircraft command
    */
   processCommand(command: AircraftCommand): boolean {
+    // Validate epoch FIRST - reject stale commands from old game instances
+    if (command.gameEpoch !== undefined && command.gameEpoch !== this.gameState.gameEpoch) {
+      console.warn(`Rejecting stale command from epoch ${command.gameEpoch}, current epoch is ${this.gameState.gameEpoch}`);
+      return false;
+    }
+
     const aircraft = this.gameState.aircraft[command.aircraftId];
     if (!aircraft) {
       console.warn(`Aircraft ${command.aircraftId} not found`);

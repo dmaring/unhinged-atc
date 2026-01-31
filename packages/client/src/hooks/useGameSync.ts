@@ -42,6 +42,12 @@ export function useGameSync(
   // Watchdog: Track last state update time to detect stale connections
   const lastUpdateTimeRef = useRef<number>(Date.now());
 
+  // Track if reconnection has been attempted for current stale period
+  const reconnectAttemptedRef = useRef<boolean>(false);
+
+  // Track action indicator timeouts to clear on unmount
+  const actionIndicatorTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
+
   useEffect(() => {
     if (!socket || !isConnected || !username || !email) return;
 
@@ -68,6 +74,8 @@ export function useGameSync(
     const onStateUpdate = (delta: StateDelta) => {
       // Update watchdog timer - we received an update
       lastUpdateTimeRef.current = Date.now();
+      // Reset reconnection flag since connection is healthy
+      reconnectAttemptedRef.current = false;
 
       // Validate delta epoch to prevent processing stale data after game reset
       const currentGameState = useGameStore.getState().gameState;
@@ -149,10 +157,14 @@ export function useGameSync(
       if (delta.actionIndicators) {
         delta.actionIndicators.forEach(indicator => {
           addActionIndicator(indicator);
-          // Auto-remove after 2 seconds
-          setTimeout(() => {
+
+          // Auto-remove after 2 seconds - track timeout for cleanup
+          const timeout = setTimeout(() => {
             removeActionIndicator(indicator.id);
+            actionIndicatorTimeouts.current.delete(timeout);
           }, 2000);
+
+          actionIndicatorTimeouts.current.add(timeout);
         });
       }
     };
@@ -252,7 +264,7 @@ export function useGameSync(
     };
 
     const onQueuePositionUpdated = (data: { position: number; totalInQueue?: number }) => {
-      console.log('[GameSync] Queue position updated:', data);
+      console.log('[GameSync] Queue position updated (legacy):', data);
       // Update position in store (and count if provided)
       const currentQueue = useGameStore.getState().queueInfo;
       setQueueInfo({
@@ -260,6 +272,23 @@ export function useGameSync(
         position: data.position
       });
       queueCallbacks?.onQueuePositionUpdated?.(data);
+    };
+
+    const onQueueUpdated = (data: { queue: Array<{ position: number; socketId: string }> }) => {
+      console.log('[GameSync] Queue updated (batch):', data);
+      // Find my position in the queue (only update if I'm in it)
+      const mySocketId = socket?.id;
+      if (mySocketId) {
+        const myQueueEntry = data.queue.find(qp => qp.socketId === mySocketId);
+        if (myQueueEntry) {
+          // Update my position and total queue count
+          setQueueInfo({
+            count: data.queue.length,
+            position: myQueueEntry.position
+          });
+          queueCallbacks?.onQueuePositionUpdated?.({ position: myQueueEntry.position });
+        }
+      }
     };
 
     const onPromotedFromQueue = () => {
@@ -301,7 +330,8 @@ export function useGameSync(
 
     // Register queue event listeners
     socket.on('queue_joined', onQueueJoined);
-    socket.on('queue_position_updated', onQueuePositionUpdated);
+    socket.on('queue_position_updated', onQueuePositionUpdated); // Legacy support
+    socket.on('queue_updated', onQueueUpdated); // New batch update
     socket.on('promoted_from_queue', onPromotedFromQueue);
     socket.on('game_full', onGameFull);
     socket.on('player_entered_game', onPlayerEnteredGame);
@@ -314,8 +344,22 @@ export function useGameSync(
     const watchdogInterval = setInterval(() => {
       const timeSinceLastUpdate = Date.now() - lastUpdateTimeRef.current;
       const STALE_THRESHOLD = 3000; // 3 seconds without updates is suspicious
+      const CRITICAL_THRESHOLD = 10000; // 10 seconds without updates requires reconnection
 
-      if (timeSinceLastUpdate > STALE_THRESHOLD) {
+      if (timeSinceLastUpdate > CRITICAL_THRESHOLD && !reconnectAttemptedRef.current) {
+        console.error('[GameSync] CRITICAL: No state updates for', timeSinceLastUpdate / 1000, 'seconds');
+        console.error('[GameSync] Attempting automatic reconnection...');
+        reconnectAttemptedRef.current = true;
+
+        // Force reconnection
+        try {
+          socket.disconnect();
+          socket.connect();
+          console.log('[GameSync] Reconnection initiated');
+        } catch (error) {
+          console.error('[GameSync] Failed to reconnect:', error);
+        }
+      } else if (timeSinceLastUpdate > STALE_THRESHOLD) {
         console.warn('[GameSync] No state updates received for', timeSinceLastUpdate / 1000, 'seconds');
         console.warn('[GameSync] Connection may be stale. Current state:', {
           isConnected,
@@ -328,6 +372,10 @@ export function useGameSync(
 
     // Cleanup
     return () => {
+      // Clear all pending action indicator timeouts
+      actionIndicatorTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      actionIndicatorTimeouts.current.clear();
+
       clearInterval(watchdogInterval);
       socket.off('game_state', onGameState);
       socket.off('state_update', onStateUpdate);
@@ -342,6 +390,7 @@ export function useGameSync(
       socket.off('join_error', handleJoinError);
       socket.off('queue_joined', onQueueJoined);
       socket.off('queue_position_updated', onQueuePositionUpdated);
+      socket.off('queue_updated', onQueueUpdated);
       socket.off('promoted_from_queue', onPromotedFromQueue);
       socket.off('game_full', onGameFull);
       socket.off('player_entered_game', onPlayerEnteredGame);

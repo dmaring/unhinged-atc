@@ -267,17 +267,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check for profanity in username
-    if (profanityFilter.isProfane(username)) {
-      Logger.security('profanity_detected', {
-        socketId: socket.id,
-        username,
-        ip: socket.handshake.address
-      });
-      socket.emit('join_error', { message: 'Screen name contains inappropriate language' });
-      return;
-    }
-
     // Leave previous room if any
     if (currentRoom) {
       socket.leave(currentRoom);
@@ -291,6 +280,7 @@ io.on('connection', (socket) => {
     const room = gameEngine.getOrCreateRoom(roomId);
 
     // Check if username is already taken in this room (active players or queue)
+    // IMPORTANT: Check username availability BEFORE profanity filter to prevent timing attacks
     const existingControllers = Object.values(room.getGameState().controllers);
     const usernameInActive = existingControllers.some(
       (controller) => controller.username.toLowerCase() === username.toLowerCase() && controller.id !== socket.id
@@ -313,6 +303,18 @@ io.on('connection', (socket) => {
         reason: 'username_taken'
       });
       socket.emit('join_error', { message: 'Screen name is already taken. Please choose another.' });
+      return;
+    }
+
+    // Check for profanity in username AFTER checking availability
+    // This prevents timing attacks that could enumerate taken usernames
+    if (profanityFilter.isProfane(username)) {
+      Logger.security('profanity_detected', {
+        socketId: socket.id,
+        username,
+        ip: socket.handshake.address
+      });
+      socket.emit('join_error', { message: 'Screen name contains inappropriate language' });
       return;
     }
 
@@ -432,11 +434,12 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Create full command
+    // Create full command with current game epoch
     const fullCommand: AircraftCommand = {
       ...command,
       id: randomBytes(8).toString('hex'),
       timestamp: Date.now(),
+      gameEpoch: room.getGameState().gameEpoch,
       controllerId: socket.id,
     };
 
@@ -654,16 +657,16 @@ io.on('connection', (socket) => {
                 playerId: newController.id,
               });
 
-              // Update queue positions for remaining queued players
+              // Batch update queue positions for remaining queued players
               const remainingQueue = room.getQueuedPlayers();
-              remainingQueue.forEach((qp) => {
-                const queuedSocket = io.sockets.sockets.get(qp.socketId);
-                if (queuedSocket) {
-                  queuedSocket.emit('queue_position_updated', {
+              if (remainingQueue.length > 0) {
+                io.to(currentRoom).emit('queue_updated', {
+                  queue: remainingQueue.map(qp => ({
                     position: qp.position,
-                  });
-                }
-              });
+                    socketId: qp.socketId,
+                  })),
+                });
+              }
             }
           }
 
@@ -692,16 +695,16 @@ io.on('connection', (socket) => {
 
           room.removeFromQueue(socket.id);
 
-          // Update queue positions for remaining queued players
+          // Batch update queue positions for remaining queued players
           const remainingQueue = room.getQueuedPlayers();
-          remainingQueue.forEach((qp) => {
-            const queuedSocket = io.sockets.sockets.get(qp.socketId);
-            if (queuedSocket) {
-              queuedSocket.emit('queue_position_updated', {
+          if (remainingQueue.length > 0) {
+            io.to(currentRoom).emit('queue_updated', {
+              queue: remainingQueue.map(qp => ({
                 position: qp.position,
-              });
-            }
-          });
+                socketId: qp.socketId,
+              })),
+            });
+          }
         }
       }
     } else {
