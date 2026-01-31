@@ -72,6 +72,9 @@ export class GameRoom {
   private queuedPlayers: Map<string, QueuedPlayer> = new Map(); // Map of socketId -> QueuedPlayer
   private activePlayerIds: Set<string> = new Set(); // Track which players are active (not queued)
 
+  // Color assignment pool (prevents race conditions)
+  private availableColors: string[] = [...CONTROLLER_COLORS];
+
   constructor(roomId: string) {
     this.physics = new AircraftPhysics();
     this.commandProcessor = new CommandProcessor();
@@ -553,15 +556,16 @@ export class GameRoom {
   }
 
   /**
-   * Get the first color from the palette not already used by an active controller.
+   * Get the next available color from the pool (atomic operation prevents race conditions)
    * Falls back to cycling if all colors are taken.
    */
   private getNextAvailableColor(): string {
-    const usedColors = new Set(
-      Object.values(this.gameState.controllers).map(c => c.color)
-    );
-    const available = CONTROLLER_COLORS.find(c => !usedColors.has(c));
-    return available ?? CONTROLLER_COLORS[Object.keys(this.gameState.controllers).length % CONTROLLER_COLORS.length];
+    // Atomic: pop from available pool
+    const color = this.availableColors.shift();
+    if (color) return color;
+
+    // Fallback: cycle through colors if all taken
+    return CONTROLLER_COLORS[Object.keys(this.gameState.controllers).length % CONTROLLER_COLORS.length];
   }
 
   /**
@@ -570,6 +574,9 @@ export class GameRoom {
   removeController(socketId: string): void {
     const controller = this.gameState.controllers[socketId];
     if (!controller) return;
+
+    // Return color to available pool
+    this.availableColors.push(controller.color);
 
     delete this.gameState.controllers[socketId];
     this.activePlayerIds.delete(socketId); // Remove from active players

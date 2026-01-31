@@ -42,6 +42,9 @@ export function useGameSync(
   // Watchdog: Track last state update time to detect stale connections
   const lastUpdateTimeRef = useRef<number>(Date.now());
 
+  // Track action indicator timeouts to clear on unmount
+  const actionIndicatorTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
+
   useEffect(() => {
     if (!socket || !isConnected || !username || !email) return;
 
@@ -149,10 +152,14 @@ export function useGameSync(
       if (delta.actionIndicators) {
         delta.actionIndicators.forEach(indicator => {
           addActionIndicator(indicator);
-          // Auto-remove after 2 seconds
-          setTimeout(() => {
+
+          // Auto-remove after 2 seconds - track timeout for cleanup
+          const timeout = setTimeout(() => {
             removeActionIndicator(indicator.id);
+            actionIndicatorTimeouts.current.delete(timeout);
           }, 2000);
+
+          actionIndicatorTimeouts.current.add(timeout);
         });
       }
     };
@@ -328,6 +335,10 @@ export function useGameSync(
 
     // Cleanup
     return () => {
+      // Clear all pending action indicator timeouts
+      actionIndicatorTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      actionIndicatorTimeouts.current.clear();
+
       clearInterval(watchdogInterval);
       socket.off('game_state', onGameState);
       socket.off('state_update', onStateUpdate);
