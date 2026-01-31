@@ -432,11 +432,12 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Create full command
+    // Create full command with current game epoch
     const fullCommand: AircraftCommand = {
       ...command,
       id: randomBytes(8).toString('hex'),
       timestamp: Date.now(),
+      gameEpoch: room.getGameState().gameEpoch,
       controllerId: socket.id,
     };
 

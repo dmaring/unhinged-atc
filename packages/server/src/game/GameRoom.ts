@@ -447,9 +447,13 @@ export class GameRoom {
         unsentEvents.forEach((e) => this.sentEventIds.add(e.id));
 
         // Limit sentEventIds size to prevent memory leak (keep last 100)
+        // Efficient approach: delete oldest entries in-place
         if (this.sentEventIds.size > 100) {
-          const idsArray = Array.from(this.sentEventIds);
-          this.sentEventIds = new Set(idsArray.slice(-100));
+          const excess = this.sentEventIds.size - 100;
+          const iterator = this.sentEventIds.values();
+          for (let i = 0; i < excess; i++) {
+            this.sentEventIds.delete(iterator.next().value);
+          }
         }
       }
     }
@@ -722,6 +726,12 @@ export class GameRoom {
    * Process an aircraft command
    */
   processCommand(command: AircraftCommand): boolean {
+    // Validate epoch FIRST - reject stale commands from old game instances
+    if (command.gameEpoch !== undefined && command.gameEpoch !== this.gameState.gameEpoch) {
+      console.warn(`Rejecting stale command from epoch ${command.gameEpoch}, current epoch is ${this.gameState.gameEpoch}`);
+      return false;
+    }
+
     const aircraft = this.gameState.aircraft[command.aircraftId];
     if (!aircraft) {
       console.warn(`Aircraft ${command.aircraftId} not found`);
