@@ -111,6 +111,12 @@ export class AircraftPhysics {
   }
 
   private updatePosition(aircraft: Aircraft, deltaTime: number): void {
+    // Guard against invalid inputs that could cause NaN propagation
+    if (deltaTime <= 0 || aircraft.speed < 0) {
+      console.warn('[Physics] Invalid physics inputs:', { deltaTime, speed: aircraft.speed });
+      return;
+    }
+
     // Convert heading to radians (0° = North, clockwise)
     // Aviation: 0° = North, 90° = East, 180° = South, 270° = West
     // Math: 0° = East, 90° = North (counterclockwise from East)
@@ -124,6 +130,13 @@ export class AircraftPhysics {
     // Update position
     aircraft.position.x += Math.cos(radians) * distance;
     aircraft.position.y += Math.sin(radians) * distance;
+
+    // Validate outputs - catch NaN propagation
+    if (!Number.isFinite(aircraft.position.x) || !Number.isFinite(aircraft.position.y)) {
+      console.error('[Physics] NaN detected in position!', aircraft);
+      aircraft.position.x = 0;
+      aircraft.position.y = 0;
+    }
   }
 
   private updateFuel(aircraft: Aircraft, deltaTime: number): void {
@@ -135,16 +148,23 @@ export class AircraftPhysics {
   }
 
   private updateTrail(aircraft: Aircraft): void {
-    // Add current position to trail
-    aircraft.trailHistory.push({
+    const maxTrailLength = 30; // About 0.5 seconds at 60 FPS
+
+    // Initialize trail array and index if needed (first time)
+    if (!aircraft.trailHistory || aircraft.trailHistory.length === 0) {
+      aircraft.trailHistory = new Array(maxTrailLength);
+      (aircraft as any).trailIndex = 0;
+    }
+
+    // Ring buffer: overwrite oldest entry (no shift needed)
+    const trailIndex = (aircraft as any).trailIndex || 0;
+    aircraft.trailHistory[trailIndex] = {
       x: aircraft.position.x,
       y: aircraft.position.y,
-    });
+    };
 
-    // Keep only last 30 positions (about 0.5 seconds at 60 FPS)
-    if (aircraft.trailHistory.length > 30) {
-      aircraft.trailHistory.shift();
-    }
+    // Update index for next write (wrap around)
+    (aircraft as any).trailIndex = (trailIndex + 1) % maxTrailLength;
   }
 
   private getFuelBurnRate(aircraft: Aircraft): number {

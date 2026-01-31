@@ -279,10 +279,16 @@ export class GameRoom {
     Object.values(this.gameState.aircraft).forEach((aircraft) => {
       if (aircraft.isLanded || aircraft.hasCollided) return;
 
+      // Check if already out of bounds BEFORE physics update
+      if (!this.physics.isInBounds(aircraft, this.gameState.airspace.bounds)) {
+        outOfBoundsAircraftIds.push(aircraft.id);
+        return; // Skip physics and updates for already out-of-bounds aircraft
+      }
+
       // Update physics
       this.physics.update(aircraft, deltaTime);
 
-      // Check if out of bounds
+      // Check if out of bounds AFTER physics update
       if (!this.physics.isInBounds(aircraft, this.gameState.airspace.bounds)) {
         outOfBoundsAircraftIds.push(aircraft.id);
         return; // Skip sending update for aircraft that will be removed

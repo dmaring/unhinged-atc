@@ -259,7 +259,7 @@ export function useGameSync(
     };
 
     const onQueuePositionUpdated = (data: { position: number; totalInQueue?: number }) => {
-      console.log('[GameSync] Queue position updated:', data);
+      console.log('[GameSync] Queue position updated (legacy):', data);
       // Update position in store (and count if provided)
       const currentQueue = useGameStore.getState().queueInfo;
       setQueueInfo({
@@ -267,6 +267,23 @@ export function useGameSync(
         position: data.position
       });
       queueCallbacks?.onQueuePositionUpdated?.(data);
+    };
+
+    const onQueueUpdated = (data: { queue: Array<{ position: number; socketId: string }> }) => {
+      console.log('[GameSync] Queue updated (batch):', data);
+      // Find my position in the queue (only update if I'm in it)
+      const mySocketId = socket?.id;
+      if (mySocketId) {
+        const myQueueEntry = data.queue.find(qp => qp.socketId === mySocketId);
+        if (myQueueEntry) {
+          // Update my position and total queue count
+          setQueueInfo({
+            count: data.queue.length,
+            position: myQueueEntry.position
+          });
+          queueCallbacks?.onQueuePositionUpdated?.({ position: myQueueEntry.position });
+        }
+      }
     };
 
     const onPromotedFromQueue = () => {
@@ -308,7 +325,8 @@ export function useGameSync(
 
     // Register queue event listeners
     socket.on('queue_joined', onQueueJoined);
-    socket.on('queue_position_updated', onQueuePositionUpdated);
+    socket.on('queue_position_updated', onQueuePositionUpdated); // Legacy support
+    socket.on('queue_updated', onQueueUpdated); // New batch update
     socket.on('promoted_from_queue', onPromotedFromQueue);
     socket.on('game_full', onGameFull);
     socket.on('player_entered_game', onPlayerEnteredGame);
@@ -353,6 +371,7 @@ export function useGameSync(
       socket.off('join_error', handleJoinError);
       socket.off('queue_joined', onQueueJoined);
       socket.off('queue_position_updated', onQueuePositionUpdated);
+      socket.off('queue_updated', onQueueUpdated);
       socket.off('promoted_from_queue', onPromotedFromQueue);
       socket.off('game_full', onGameFull);
       socket.off('player_entered_game', onPlayerEnteredGame);

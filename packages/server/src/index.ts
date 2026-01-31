@@ -655,16 +655,16 @@ io.on('connection', (socket) => {
                 playerId: newController.id,
               });
 
-              // Update queue positions for remaining queued players
+              // Batch update queue positions for remaining queued players
               const remainingQueue = room.getQueuedPlayers();
-              remainingQueue.forEach((qp) => {
-                const queuedSocket = io.sockets.sockets.get(qp.socketId);
-                if (queuedSocket) {
-                  queuedSocket.emit('queue_position_updated', {
+              if (remainingQueue.length > 0) {
+                io.to(currentRoom).emit('queue_updated', {
+                  queue: remainingQueue.map(qp => ({
                     position: qp.position,
-                  });
-                }
-              });
+                    socketId: qp.socketId,
+                  })),
+                });
+              }
             }
           }
 
@@ -693,16 +693,16 @@ io.on('connection', (socket) => {
 
           room.removeFromQueue(socket.id);
 
-          // Update queue positions for remaining queued players
+          // Batch update queue positions for remaining queued players
           const remainingQueue = room.getQueuedPlayers();
-          remainingQueue.forEach((qp) => {
-            const queuedSocket = io.sockets.sockets.get(qp.socketId);
-            if (queuedSocket) {
-              queuedSocket.emit('queue_position_updated', {
+          if (remainingQueue.length > 0) {
+            io.to(currentRoom).emit('queue_updated', {
+              queue: remainingQueue.map(qp => ({
                 position: qp.position,
-              });
-            }
-          });
+                socketId: qp.socketId,
+              })),
+            });
+          }
         }
       }
     } else {
