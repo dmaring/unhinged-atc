@@ -12,6 +12,7 @@ import {
   Conflict,
   POINTS,
   GAME_CONFIG,
+  CRASH_CONFIG,
   SPAWN_DIFFICULTY_TIERS,
   GAME_END_MESSAGES,
   ChaosCommand,
@@ -371,7 +372,7 @@ export class GameRoom {
     Object.values(this.gameState.aircraft).forEach((aircraft) => {
       if (aircraft.isCrashing && aircraft.crashTime) {
         const elapsedTime = Date.now() - aircraft.crashTime;
-        if (elapsedTime >= 2000) { // CRASH_CONFIG.ANIMATION_DURATION
+        if (elapsedTime >= CRASH_CONFIG.ANIMATION_DURATION) {
           removedAircraftIds.push(aircraft.id);
           delete this.gameState.aircraft[aircraft.id];
         }

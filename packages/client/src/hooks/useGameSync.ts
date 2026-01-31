@@ -42,6 +42,9 @@ export function useGameSync(
   // Watchdog: Track last state update time to detect stale connections
   const lastUpdateTimeRef = useRef<number>(Date.now());
 
+  // Track if reconnection has been attempted for current stale period
+  const reconnectAttemptedRef = useRef<boolean>(false);
+
   // Track action indicator timeouts to clear on unmount
   const actionIndicatorTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
@@ -71,6 +74,8 @@ export function useGameSync(
     const onStateUpdate = (delta: StateDelta) => {
       // Update watchdog timer - we received an update
       lastUpdateTimeRef.current = Date.now();
+      // Reset reconnection flag since connection is healthy
+      reconnectAttemptedRef.current = false;
 
       // Validate delta epoch to prevent processing stale data after game reset
       const currentGameState = useGameStore.getState().gameState;
@@ -339,8 +344,22 @@ export function useGameSync(
     const watchdogInterval = setInterval(() => {
       const timeSinceLastUpdate = Date.now() - lastUpdateTimeRef.current;
       const STALE_THRESHOLD = 3000; // 3 seconds without updates is suspicious
+      const CRITICAL_THRESHOLD = 10000; // 10 seconds without updates requires reconnection
 
-      if (timeSinceLastUpdate > STALE_THRESHOLD) {
+      if (timeSinceLastUpdate > CRITICAL_THRESHOLD && !reconnectAttemptedRef.current) {
+        console.error('[GameSync] CRITICAL: No state updates for', timeSinceLastUpdate / 1000, 'seconds');
+        console.error('[GameSync] Attempting automatic reconnection...');
+        reconnectAttemptedRef.current = true;
+
+        // Force reconnection
+        try {
+          socket.disconnect();
+          socket.connect();
+          console.log('[GameSync] Reconnection initiated');
+        } catch (error) {
+          console.error('[GameSync] Failed to reconnect:', error);
+        }
+      } else if (timeSinceLastUpdate > STALE_THRESHOLD) {
         console.warn('[GameSync] No state updates received for', timeSinceLastUpdate / 1000, 'seconds');
         console.warn('[GameSync] Connection may be stale. Current state:', {
           isConnected,
