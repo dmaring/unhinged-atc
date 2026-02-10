@@ -192,9 +192,10 @@ gcloud compute backend-services update "$BACKEND_SERVICE" \
 echo -e "${YELLOW}[11/12] Creating managed SSL certificate...${NC}"
 if ! gcloud compute ssl-certificates describe "$SSL_CERT" --global &>/dev/null; then
     gcloud compute ssl-certificates create "$SSL_CERT" \
-        --domains="$DOMAIN" \
+        --domains="$DOMAIN,www.$DOMAIN" \
         --global
     echo -e "${YELLOW}⚠ SSL certificate provisioning can take 15-60 minutes${NC}"
+    echo -e "${YELLOW}⚠ Don't forget to create DNS A record for www.$DOMAIN pointing to $LB_IP${NC}"
 fi
 
 # Create URL map and load balancer

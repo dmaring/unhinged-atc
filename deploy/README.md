@@ -72,7 +72,7 @@ cd deploy
 ✅ **DDoS Protection**: Cloud Armor with rate limiting
 ✅ **WAF**: XSS, SQLi, LFI, RCE blocking
 ✅ **Firewall**: Zero-trust VPC rules
-✅ **SSL/TLS**: Auto-managed certificates
+✅ **SSL/TLS**: Auto-managed certificates (supports apex + www subdomain)
 ✅ **Monitoring**: Real-time alerts
 ✅ **IAP**: Secure SSH access
 
@@ -115,7 +115,7 @@ Create `deploy/.env`:
 PROJECT_ID=your-project-id
 REGION=us-central1
 ZONE=us-central1-a
-DOMAIN=yourdomain.com
+DOMAIN=yourdomain.com  # SSL cert will include both yourdomain.com and www.yourdomain.com
 REPO_URL=https://github.com/YOUR_USERNAME/unhinged-atc.git
 NOTIFICATION_EMAIL=alerts@yourdomain.com
 ```
@@ -200,11 +200,14 @@ gcloud compute instance-groups managed recreate-instances atc-mig \
 
 **Fix:**
 ```bash
-# Verify DNS
+# Verify DNS for both apex and www subdomain
 nslookup yourdomain.com
+nslookup www.yourdomain.com
 
 # Wait 15-60 minutes for Google to provision certificate
-gcloud compute ssl-certificates describe atc-ssl-cert --global
+# Note: Production uses versioned certificates (e.g., atc-ssl-cert-v2)
+gcloud compute ssl-certificates list --global
+gcloud compute ssl-certificates describe atc-ssl-cert-v2 --global
 ```
 
 ### Instances Unhealthy
@@ -281,7 +284,8 @@ To delete all resources and stop billing:
 gcloud compute forwarding-rules delete atc-https-rule --global --quiet
 gcloud compute target-https-proxies delete atc-https-proxy --global --quiet
 gcloud compute url-maps delete atc-url-map --global --quiet
-gcloud compute ssl-certificates delete atc-ssl-cert --global --quiet
+# Delete all SSL certificates (adjust version number as needed)
+gcloud compute ssl-certificates delete atc-ssl-cert-v2 --global --quiet
 gcloud compute backend-services delete atc-backend-service --global --quiet
 gcloud compute health-checks delete atc-health-check --quiet
 gcloud compute security-policies delete atc-security-policy --quiet

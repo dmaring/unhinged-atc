@@ -370,7 +370,7 @@ gcloud compute security-policies rules update 1000 \
    ```bash
    # Create new certificate
    gcloud compute ssl-certificates create atc-ssl-cert-v2 \
-       --domains=$DOMAIN --global
+       --domains=$DOMAIN,www.$DOMAIN --global
 
    # Update target proxy
    gcloud compute target-https-proxies update atc-https-proxy \

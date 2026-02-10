@@ -168,6 +168,12 @@ gcloud compute instance-templates create atc-template-v2 \
 - `VITE_WS_URL=wss://yourdomain.com`
 - `VITE_API_URL=https://yourdomain.com`
 
+**SSL Certificate Configuration**:
+- Managed SSL certificate includes both apex domain and www subdomain
+- Current production certificate: `atc-ssl-cert-v2` (covers openatc.app and www.openatc.app)
+- Both DNS A records must point to the load balancer IP for certificate provisioning
+- New deployments create `atc-ssl-cert` with both domains automatically
+
 ### Cloud Logging & Monitoring
 
 **Viewing Logs in Cloud Logging**:

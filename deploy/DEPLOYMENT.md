@@ -125,24 +125,39 @@ After the script displays the load balancer IP:
 Load Balancer IP: 34.102.xxx.xxx
 ```
 
-Add DNS A record:
+Add DNS A records for both apex domain and www subdomain:
 ```
+# Apex domain
 Type: A
-Name: @  (or unhingedatc.com)
+Name: @  (or yourdomain.com)
+Value: 34.102.xxx.xxx
+TTL: 300
+
+# WWW subdomain
+Type: A
+Name: www
 Value: 34.102.xxx.xxx
 TTL: 300
 ```
+
+**Important:** Both records are required for SSL certificate provisioning to succeed.
 
 Wait 5-10 minutes for DNS propagation.
 
 #### 2.3 Verify SSL Certificate Provisioning
 
 ```bash
-# Check SSL certificate status
+# Check SSL certificate status (use the correct certificate name)
+gcloud compute ssl-certificates list --global
 gcloud compute ssl-certificates describe atc-ssl-cert --global
 
 # Status should change from PROVISIONING → ACTIVE (takes 15-60 min)
+# Both domains should show ACTIVE:
+#   yourdomain.com: ACTIVE
+#   www.yourdomain.com: ACTIVE
 ```
+
+**Note:** The SSL certificate includes both the apex domain and www subdomain. Both must be properly configured in DNS for provisioning to succeed.
 
 ---
 
@@ -375,19 +390,27 @@ gcloud billing budgets create \
 
 ### Issue: SSL Certificate Stuck in PROVISIONING
 
-**Cause:** DNS not configured correctly or not propagated
+**Cause:** DNS not configured correctly or not propagated for both apex and www subdomain
 
 **Solution:**
 ```bash
-# 1. Verify DNS
-nslookup unhingedatc.com
-# Should return the load balancer IP
+# 1. Verify DNS for BOTH domains
+nslookup yourdomain.com
+nslookup www.yourdomain.com
+# Both should return the load balancer IP
 
-# 2. Wait 15-60 minutes for Google to provision
+# 2. Check certificate status
+gcloud compute ssl-certificates list --global
+gcloud compute ssl-certificates describe CERT_NAME --global
 
-# 3. If still stuck after 60 min, delete and recreate
-gcloud compute ssl-certificates delete atc-ssl-cert --global
-gcloud compute ssl-certificates create atc-ssl-cert --domains=$DOMAIN --global
+# 3. Wait 15-60 minutes for Google to provision
+
+# 4. If still stuck after 60 min, delete and recreate
+# Note: Certificate must NOT be in use by HTTPS proxy to delete
+# Create new versioned certificate first, update proxy, then delete old one
+gcloud compute ssl-certificates create atc-ssl-cert-v3 --domains=$DOMAIN,www.$DOMAIN --global
+gcloud compute target-https-proxies update atc-https-proxy --ssl-certificates=atc-ssl-cert-v3 --global
+gcloud compute ssl-certificates delete OLD_CERT_NAME --global
 ```
 
 ### Issue: Instances Unhealthy
